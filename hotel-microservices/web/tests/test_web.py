@@ -5,7 +5,7 @@ PUBLIC = Path(__file__).resolve().parents[1] / "public"
 
 def test_index_contains_app_shell() -> None:
     html = (PUBLIC / "index.html").read_text(encoding="utf-8")
-    assert "StayWell" in html
+    assert "Aryanstays" in html
     assert "/app.js" in html
     assert "/styles.css" in html
     assert "#/hotels" in html
@@ -19,9 +19,13 @@ def test_app_calls_all_microservices() -> None:
     assert "/api/v1/bookings" in js
     assert 'method: "POST"' in js
     assert 'method: "DELETE"' in js
+    assert "MEGA SALE" in js
+    assert "Top destinations in India" in js
 
 
 def test_styles_exist() -> None:
     css = (PUBLIC / "styles.css").read_text(encoding="utf-8")
     assert ".hero" in css
-    assert ".card" in css
+    assert ".search-card" in css
+    assert ".dest-card" in css
+    assert "--pink" in css
