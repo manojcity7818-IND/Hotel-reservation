@@ -14,4 +14,4 @@ cd hotel-microservices
 docker compose up --build
 ```
 
-Then open **http://localhost:8080** to use the hotel website.
+Then open **http://localhost:8080** to use the Aryanstays website.

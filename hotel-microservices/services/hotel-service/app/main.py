@@ -44,8 +44,16 @@ def ready() -> dict[str, str]:
 
 
 @app.get("/api/v1/hotels", response_model=list[HotelResponse])
-def get_hotels() -> list[Hotel]:
-    return list(data.hotels.values())
+def get_hotels(city: str | None = None, q: str | None = None) -> list[Hotel]:
+    results = list(data.hotels.values())
+    needle = (city or q or "").strip().lower()
+    if needle:
+        results = [
+            hotel
+            for hotel in results
+            if needle in hotel.city.lower() or needle in hotel.name.lower()
+        ]
+    return results
 
 
 @app.get("/api/v1/hotels/{hotel_id}", response_model=HotelResponse)

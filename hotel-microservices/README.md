@@ -12,7 +12,7 @@ Open the website at **http://localhost:8080** after `docker compose up`.
 
 ```
                          Host machine
-              http://localhost:8080  (StayWell website)
+              http://localhost:8080  (Aryanstays website)
                            |
                            v
                     +--------------+
@@ -65,14 +65,16 @@ Open the website at **http://localhost:8080** after `docker compose up`.
 
 ### Hotel Service
 
-Owns hotel records (id, name, city, rating). Sample hotels: Grand Hyderabad Hotel and Bangalore Palace Hotel.
+Owns hotel records (id, name, city, rating). Sample data includes 20 hotels across Hyderabad, Bangalore, Mumbai, New Delhi, Chennai, Goa, Jaipur, Pune, Kolkata, and Kochi.
+
+`GET /api/v1/hotels?q=Mumbai` filters by city or hotel name.
 
 - Base URL on the host: `http://localhost:8000`
 - Does not call other services
 
 ### Room Service
 
-Owns rooms and availability. Sample rooms: 101, 102 (hotel 1) and 201 (hotel 2).
+Owns rooms and availability. Each hotel has sample rooms (for example 101/102 for Grand Hyderabad Hotel and 201/202 for Bangalore Palace Hotel).
 
 - Base URL on the host: `http://localhost:8002`
 - `POST /reserve` sets `available` to `false`
@@ -85,9 +87,9 @@ Creates, lists, and cancels bookings. It **never** reads Room Service memory. It
 - Base URL on the host: `http://localhost:8003`
 - `ROOM_SERVICE_URL=http://room-service:8000` inside Docker Compose
 
-### Website (StayWell)
+### Website (Aryanstays)
 
-The hotel booking UI at `http://localhost:8080`. It is a static site served by nginx. The browser calls:
+The hotel booking UI at `http://localhost:8080`. It follows an Agoda-style search homepage: MEGA SALE hero, destination search, date pickers, top destinations in India, and hotel result cards. The browser calls:
 
 - `/api/v1/hotels` → Hotel Service
 - `/api/v1/rooms` → Room Service
@@ -202,7 +204,7 @@ docker compose up -d --build room-service
 docker compose up -d
 ```
 
-Open the website:
+Open the Aryanstays website:
 
 [http://localhost:8080](http://localhost:8080)
 

@@ -3,15 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>StayWell — Hotel bookings</title>
+    <title>Aryanstays — Hotels, homes and stays</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <header class="topbar">
-      <a class="brand" href="#/">StayWell</a>
-      <nav>
-        <a href="#/">Home</a>
-        <a href="#/hotels">Hotels</a>
+    <header class="site-header">
+      <a class="logo" href="#/">
+        <span class="logo-mark">A</span>
+        Aryanstays
+      </a>
+      <nav class="header-nav">
+        <a href="#/" class="is-active">Hotels</a>
+        <a href="#/hotels">Homes &amp; Apts</a>
+        <a href="#/hotels">Activities</a>
         <a href="#/bookings">My bookings</a>
       </nav>
     </header>
@@ -20,8 +24,12 @@
 
     <div id="toast" class="toast" hidden></div>
 
-    <footer class="footer">
-      <p>StayWell uses Hotel, Room, and Booking microservices. Data is stored in memory for local development.</p>
+    <footer class="site-footer">
+      <div>
+        <strong>Aryanstays</strong>
+        <p>Search hotels across India. Powered by Hotel, Room, and Booking microservices.</p>
+      </div>
+      <p class="fine-print">Local development only. Availability is stored in memory.</p>
     </footer>
 
     <script src="/app.js"></script>

@@ -14,8 +14,22 @@ def test_get_hotels() -> None:
     response = client.get("/api/v1/hotels")
     assert response.status_code == 200
     hotels = response.json()
-    assert len(hotels) == 2
-    assert hotels[0]["name"] == "Grand Hyderabad Hotel"
+    names = {hotel["name"] for hotel in hotels}
+    cities = {hotel["city"] for hotel in hotels}
+    assert len(hotels) >= 16
+    assert "Grand Hyderabad Hotel" in names
+    assert "Bangalore Palace Hotel" in names
+    assert {"Hyderabad", "Bangalore", "Mumbai", "New Delhi", "Chennai", "Goa"}.issubset(
+        cities
+    )
+
+
+def test_filter_hotels_by_city() -> None:
+    response = client.get("/api/v1/hotels", params={"q": "Mumbai"})
+    assert response.status_code == 200
+    hotels = response.json()
+    assert hotels
+    assert all("mumbai" in hotel["city"].lower() or "mumbai" in hotel["name"].lower() for hotel in hotels)
 
 
 def test_get_hotel_by_id() -> None:
@@ -27,12 +41,13 @@ def test_get_hotel_by_id() -> None:
 
 
 def test_create_hotel() -> None:
-    payload = {"name": "Chennai Bay Hotel", "city": "Chennai", "rating": 4.0}
+    existing = client.get("/api/v1/hotels").json()
+    payload = {"name": "Mysore Garden Hotel", "city": "Mysore", "rating": 4.0}
     response = client.post("/api/v1/hotels", json=payload)
     assert response.status_code == 201
     hotel = response.json()
-    assert hotel["id"] == 3
-    assert hotel["name"] == "Chennai Bay Hotel"
+    assert hotel["id"] == max(item["id"] for item in existing) + 1
+    assert hotel["name"] == "Mysore Garden Hotel"
 
 
 def test_update_hotel() -> None:
@@ -45,10 +60,11 @@ def test_update_hotel() -> None:
 
 
 def test_delete_hotel() -> None:
+    before = len(client.get("/api/v1/hotels").json())
     response = client.delete("/api/v1/hotels/2")
     assert response.status_code == 204
     assert client.get("/api/v1/hotels/2").status_code == 404
-    assert len(client.get("/api/v1/hotels").json()) == 1
+    assert len(client.get("/api/v1/hotels").json()) == before - 1
 
 
 def test_hotel_not_found() -> None:
