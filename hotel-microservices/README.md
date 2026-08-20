@@ -146,8 +146,11 @@ hotel-microservices/
 │   └── booking-service/
 ├── web/
 │   ├── public/
+│   ├── tests/
 │   ├── nginx.conf
 │   └── Dockerfile
+├── scripts/
+│   └── run-tests.sh
 ├── docker-compose.yml
 ├── .env.example
 ├── .gitignore
@@ -267,12 +270,19 @@ Interactive docs (Swagger):
 - Room: http://localhost:8002/docs
 - Booking: http://localhost:8003/docs
 
-Unit tests (from each service directory, with dependencies installed):
+Unit tests (from `hotel-microservices/`, with Python 3.12):
+
+```bash
+./scripts/run-tests.sh
+```
+
+Or per service:
 
 ```bash
 cd services/hotel-service && pytest
 cd services/room-service && pytest
 cd services/booking-service && pytest
+cd web && pytest
 ```
 
 ---
@@ -361,6 +371,38 @@ curl -X POST http://localhost:8002/api/v1/rooms/102/release
 | Healthcheck stays unhealthy | Wait for the start period, then inspect logs. Health URLs inside the container are `http://127.0.0.1:8000/health`. |
 | Data disappeared after restart | Expected. Phase 1 stores everything in memory. |
 | Rebuild did not pick up code | `docker compose build --no-cache <service>` then `docker compose up -d <service>`. |
+
+---
+
+## 16. Azure DevOps pipelines
+
+Two pipelines live at the repository root:
+
+| File | When it runs | What it does |
+| --- | --- | --- |
+| `azure-pipelines-pr.yml` | Pull requests to `main` | Install Python 3.12, compile services, run unit tests with coverage, SonarCloud analysis, and Docker **build** validation (no push) |
+| `azure-pipelines-ci.yml` | Pushes to `main` | Run unit tests, publish the `hotel-microservices` artifact, then **build, Trivy-scan, and push** images for hotel-service, room-service, booking-service, and hotel-web |
+
+### Create the pipelines
+
+1. In Azure DevOps, create a pipeline from `azure-pipelines-pr.yml` (PR validation).
+2. Create a second pipeline from `azure-pipelines-ci.yml` (CI / image build).
+3. Create variable group **KV-VariableGroup** (same name as in the YAML).
+4. Create SonarCloud service connection **SonarCloud-ServiceConnection**.
+5. Update `sonarOrganization` and `sonarProjectKey` in `azure-pipelines-pr.yml` if your SonarCloud project uses different values.
+6. Create a Docker Registry service connection named **hotelreservationacr** pointing at your Azure Container Registry.
+7. Grant the CI pipeline permission to use that ACR connection.
+
+Images pushed by CI:
+
+- `hotel-service:$(Build.BuildId)` and `:latest`
+- `room-service:$(Build.BuildId)` and `:latest`
+- `booking-service:$(Build.BuildId)` and `:latest`
+- `hotel-web:$(Build.BuildId)` and `:latest`
+
+---
+
+## Ports
 
 HTTP errors used by the APIs:
 
