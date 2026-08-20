@@ -1,10 +1,10 @@
 # Hotel Booking Microservices — Phase 1
 
-Local hotel booking application made of three independent Python microservices plus a website. All data is in-memory. Services talk to each other over REST and run together with Docker Compose.
+Local hotel booking application made of four independent Python microservices plus a website. All data is in-memory. Services talk to each other over REST and run together with Docker Compose.
 
 This phase does **not** use a database, Redis, Azure, Kubernetes, Terraform, Kafka, RabbitMQ, authentication, or a service mesh.
 
-Open the website at **http://localhost:8080** after `docker compose up`.
+Open the website at **http://localhost:8080** after `docker compose up`. The main screen uses `/images/hero-background.png` as the homepage background.
 
 ---
 
@@ -66,7 +66,7 @@ Open the website at **http://localhost:8080** after `docker compose up`.
 
 ### Hotel Service
 
-Owns hotel records (id, name, city, rating). Sample data includes 18 hotels in each of 10 cities (180 hotels total): Hyderabad, Bangalore, Mumbai, New Delhi, Chennai, Goa, Jaipur, Pune, Kolkata, and Kochi.
+Owns hotel records (id, name, city, rating). Sample data includes 25 hotels in each of 10 cities plus 10 hotels each in Mysore and Udaipur (270 hotels total): Hyderabad, Bangalore, Mumbai, New Delhi, Chennai, Goa, Jaipur, Pune, Kolkata, Kochi, Mysore, and Udaipur.
 
 `GET /api/v1/hotels?q=Mumbai` filters by city or hotel name.
 

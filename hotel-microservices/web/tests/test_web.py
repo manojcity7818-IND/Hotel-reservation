@@ -14,6 +14,7 @@ def test_index_contains_app_shell() -> None:
     assert "/styles.css" in html
     assert "#/hotels" in html
     assert "#/bookings" in html
+    assert "/images/hero-background.png" in html
 
 
 def test_app_calls_all_microservices() -> None:
@@ -25,6 +26,8 @@ def test_app_calls_all_microservices() -> None:
     assert 'method: "POST"' in js
     assert 'method: "DELETE"' in js
     assert "Top destinations in India" in js or "dest-card" in js
+    assert "Mysore" in js
+    assert "Udaipur" in js
 
 
 def test_styles_exist() -> None:
@@ -34,3 +37,6 @@ def test_styles_exist() -> None:
     assert ".dest-card" in css
     assert "--agoda-pink" in css
     assert ".hotel-row" in css
+    assert "/images/hero-background.png" in css
+    assert "#home-page" in css
+    assert (PUBLIC / "images" / "hero-background.png").is_file()

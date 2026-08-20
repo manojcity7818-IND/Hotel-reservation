@@ -15,7 +15,7 @@ def test_get_rooms() -> None:
     assert response.status_code == 200
     rooms = response.json()
     assert {101, 102, 201}.issubset({room["id"] for room in rooms})
-    assert len(rooms) >= 3
+    assert len(rooms) >= 500
 
 
 def test_get_rooms_by_hotel() -> None:

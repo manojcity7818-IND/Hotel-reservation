@@ -1,16 +1,18 @@
 from app.models import Room
 
 CITY_HOTEL_COUNTS = {
-    "Hyderabad": 18,
-    "Bangalore": 18,
-    "Mumbai": 18,
-    "New Delhi": 18,
-    "Chennai": 18,
-    "Goa": 18,
-    "Jaipur": 18,
-    "Pune": 18,
-    "Kolkata": 18,
-    "Kochi": 18,
+    "Hyderabad": 25,
+    "Bangalore": 25,
+    "Mumbai": 25,
+    "New Delhi": 25,
+    "Chennai": 25,
+    "Goa": 25,
+    "Jaipur": 25,
+    "Pune": 25,
+    "Kolkata": 25,
+    "Kochi": 25,
+    "Mysore": 10,
+    "Udaipur": 10,
 }
 
 _ROOM_TYPES = [
@@ -30,6 +32,8 @@ _CITY_BASE_PRICE = {
     "Pune": 3900,
     "Kolkata": 3700,
     "Kochi": 4300,
+    "Mysore": 3600,
+    "Udaipur": 5200,
 }
 
 

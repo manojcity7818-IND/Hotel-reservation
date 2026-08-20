@@ -13,6 +13,8 @@ const TOP_CITIES = [
   { name: "Pune", className: "city-pune" },
   { name: "Kolkata", className: "city-kolkata" },
   { name: "Kochi", className: "city-kochi" },
+  { name: "Mysore", className: "city-mysore" },
+  { name: "Udaipur", className: "city-udaipur" },
 ];
 
 function cityClass(city) {
@@ -28,6 +30,8 @@ function cityClass(city) {
       pune: "city-pune",
       kolkata: "city-kolkata",
       kochi: "city-kochi",
+      mysore: "city-mysore",
+      udaipur: "city-udaipur",
     }[(city || "").toLowerCase()] || "city-pune"
   );
 }
@@ -203,7 +207,7 @@ function renderHotelList(selector, hotels, rooms) {
   const target = document.querySelector(selector);
   if (!target) return;
   if (!hotels.length) {
-    target.innerHTML = `<div class="empty">No hotels match that destination. Try Bangalore, Mumbai, New Delhi, Hyderabad or Goa.</div>`;
+    target.innerHTML = `<div class="empty">No hotels match that destination. Try Bangalore, Mumbai, Hyderabad, Mysore or Udaipur.</div>`;
     return;
   }
   target.innerHTML = hotels

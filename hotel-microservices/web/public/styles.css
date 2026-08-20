@@ -118,10 +118,18 @@ button, input { font: inherit; }
   cursor: pointer;
 }
 
+#home-page {
+  background-color: #000;
+  background-image:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.28) 0%, rgba(0, 0, 0, 0.12) 38%, rgba(247, 248, 251, 0.88) 78%, var(--bg) 100%),
+    url("/images/hero-background.png");
+  background-position: center top, center 22%;
+  background-size: cover, cover;
+  background-repeat: no-repeat;
+}
+
 .promo-hero {
-  background:
-    radial-gradient(circle at 15% 20%, rgba(255,255,255,0.18), transparent 28%),
-    repeating-linear-gradient(-28deg, var(--agoda-magenta) 0 34px, var(--agoda-pink-dark) 34px 68px);
+  background: linear-gradient(90deg, rgba(226, 19, 110, 0.78) 0%, rgba(20, 8, 16, 0.28) 62%, rgba(0, 0, 0, 0.12) 100%);
   padding: 48px 4vw 120px;
   min-height: 420px;
 }
@@ -301,6 +309,8 @@ button, input { font: inherit; }
 .city-pune { background: linear-gradient(165deg, #7c8ea3, #1b2631 72%); }
 .city-kolkata { background: linear-gradient(165deg, #b07ad0, #4a235a 72%); }
 .city-kochi { background: linear-gradient(165deg, #4aa3d9, #1a5276 72%); }
+.city-mysore { background: linear-gradient(165deg, #c9a227, #5d3a12 72%); }
+.city-udaipur { background: linear-gradient(165deg, #5dade2, #1a5276 72%); }
 
 .deal-banners {
   display: grid;
