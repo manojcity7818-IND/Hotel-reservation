@@ -7,9 +7,11 @@ __pycache__/
 venv/
 env/
 ENV/
-.pytest_cache/
-.coverage
+test-results/
+coverage/
 htmlcov/
+coverage.xml
+
 *.egg-info/
 .eggs/
 dist/

@@ -70,3 +70,61 @@ def test_health_and_ready() -> None:
     assert health.json() == {"status": "healthy", "service": "room-service"}
     assert ready.status_code == 200
     assert ready.json() == {"status": "ready", "service": "room-service"}
+
+
+def test_create_room() -> None:
+    payload = {
+        "hotel_id": 1,
+        "room_number": "103",
+        "room_type": "Suite",
+        "price_per_night": 8000,
+        "available": True,
+    }
+    response = client.post("/api/v1/rooms", json=payload)
+    assert response.status_code == 201
+    body = response.json()
+    assert body["room_number"] == "103"
+    assert body["available"] is True
+
+
+def test_update_room() -> None:
+    payload = {
+        "hotel_id": 1,
+        "room_number": "101A",
+        "room_type": "Deluxe",
+        "price_per_night": 5500,
+        "available": True,
+    }
+    response = client.put("/api/v1/rooms/101", json=payload)
+    assert response.status_code == 200
+    assert response.json()["room_number"] == "101A"
+    assert response.json()["price_per_night"] == 5500
+
+
+def test_delete_room() -> None:
+    response = client.delete("/api/v1/rooms/102")
+    assert response.status_code == 204
+    assert client.get("/api/v1/rooms/102").status_code == 404
+
+
+def test_release_when_not_reserved() -> None:
+    response = client.post("/api/v1/rooms/101/release")
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Room is not currently reserved."
+
+
+def test_get_room_by_id() -> None:
+    response = client.get("/api/v1/rooms/201")
+    assert response.status_code == 200
+    assert response.json()["hotel_id"] == 2
+
+
+def test_create_room_invalid_price() -> None:
+    payload = {
+        "hotel_id": 1,
+        "room_number": "104",
+        "room_type": "Standard",
+        "price_per_night": 0,
+    }
+    response = client.post("/api/v1/rooms", json=payload)
+    assert response.status_code == 400

@@ -1,0 +1,196 @@
+########################################################
+# PR Pipeline
+# Trigger: Pull Requests to main
+# Validates Python unit tests, SonarCloud, and Docker builds.
+########################################################
+
+pr:
+  branches:
+    include:
+      - main
+  paths:
+    exclude:
+      - README.md
+      - '**/*.md'
+
+trigger: none
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  - group: KV-VariableGroup
+
+  - name: pythonVersion
+    value: '3.12'
+
+  - name: sonarCloudServiceConnection
+    value: SonarCloud-ServiceConnection
+
+  - name: sonarOrganization
+    value: manojcity7818-ind
+
+  - name: sonarProjectKey
+    value: manojcity7818-IND_Hotel-reservation
+
+  - name: sonarProjectName
+    value: Hotel-reservation
+
+##############################################################
+# Stage 1 - Build
+##############################################################
+
+stages:
+
+- stage: Build
+  displayName: Build Application
+
+  jobs:
+
+  - job: Build
+    displayName: Install Python and compile services
+
+    steps:
+
+    - checkout: self
+      fetchDepth: 0
+
+    - task: UsePythonVersion@0
+      displayName: Install Python
+      inputs:
+        versionSpec: $(pythonVersion)
+
+    - task: Cache@2
+      displayName: Cache pip
+      inputs:
+        key: 'pip | "$(Agent.OS)" | hotel-microservices/**/requirements.txt'
+        restoreKeys: |
+          pip | "$(Agent.OS)"
+        path: $(Pipeline.Workspace)/.cache/pip
+
+    - script: |
+        set -e
+        python -m pip install --upgrade pip
+        pip install -r hotel-microservices/services/hotel-service/requirements.txt
+        pip install -r hotel-microservices/services/room-service/requirements.txt
+        pip install -r hotel-microservices/services/booking-service/requirements.txt
+        python -m compileall -q hotel-microservices/services hotel-microservices/web
+      displayName: Install dependencies and compile
+      env:
+        PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
+
+##############################################################
+# Stage 2 - Test
+##############################################################
+
+- stage: Test
+  displayName: Unit Tests
+  dependsOn: Build
+
+  jobs:
+
+  - job: Test
+    displayName: Run unit tests and SonarCloud
+
+    steps:
+
+    - checkout: self
+      fetchDepth: 0
+
+    - task: UsePythonVersion@0
+      displayName: Install Python
+      inputs:
+        versionSpec: $(pythonVersion)
+
+    - task: SonarCloudPrepare@4
+      displayName: Prepare SonarCloud
+      inputs:
+        SonarCloud: $(sonarCloudServiceConnection)
+        organization: $(sonarOrganization)
+        scannerMode: cli
+        configMode: manual
+        cliProjectKey: $(sonarProjectKey)
+        cliProjectName: $(sonarProjectName)
+        extraProperties: |
+          sonar.python.version=3.12
+          sonar.sources=hotel-microservices/services/hotel-service/app,hotel-microservices/services/room-service/app,hotel-microservices/services/booking-service/app,hotel-microservices/web/public
+          sonar.tests=hotel-microservices/services/hotel-service/tests,hotel-microservices/services/room-service/tests,hotel-microservices/services/booking-service/tests,hotel-microservices/web/tests
+          sonar.python.coverage.reportPaths=$(Build.SourcesDirectory)/coverage/*.xml
+          sonar.exclusions=**/__pycache__/**,**/.pytest_cache/**,**/coverage/**
+
+    - script: |
+        set -e
+        chmod +x hotel-microservices/scripts/run-tests.sh
+        hotel-microservices/scripts/run-tests.sh
+      displayName: Run Unit Tests
+      env:
+        RESULTS_DIR: $(Build.SourcesDirectory)/test-results
+        COVERAGE_DIR: $(Build.SourcesDirectory)/coverage
+        PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
+
+    - task: PublishTestResults@2
+      displayName: Publish Test Results
+      condition: always()
+      inputs:
+        testResultsFormat: JUnit
+        testResultsFiles: test-results/*.xml
+        failTaskOnFailedTests: true
+
+    - task: PublishCodeCoverageResults@2
+      displayName: Publish Code Coverage
+      inputs:
+        summaryFileLocation: $(Build.SourcesDirectory)/coverage/*.xml
+        failIfCoverageEmpty: true
+
+    - task: SonarCloudAnalyze@4
+      displayName: Run SonarCloud Analysis
+
+    - task: SonarCloudPublish@4
+      displayName: Publish Quality Gate
+      inputs:
+        pollingTimeoutSec: 300
+
+##############################################################
+# Stage 3 - Docker Validation
+##############################################################
+
+- stage: DockerValidation
+  displayName: Docker Build Validation
+  dependsOn: Test
+
+  jobs:
+
+  - job: Docker
+    displayName: Validate Docker images
+    strategy:
+      matrix:
+        hotel:
+          imageName: hotel-service-pr
+          dockerFile: hotel-microservices/services/hotel-service/Dockerfile
+          buildContext: hotel-microservices/services/hotel-service
+        room:
+          imageName: room-service-pr
+          dockerFile: hotel-microservices/services/room-service/Dockerfile
+          buildContext: hotel-microservices/services/room-service
+        booking:
+          imageName: booking-service-pr
+          dockerFile: hotel-microservices/services/booking-service/Dockerfile
+          buildContext: hotel-microservices/services/booking-service
+        web:
+          imageName: hotel-web-pr
+          dockerFile: hotel-microservices/web/Dockerfile
+          buildContext: hotel-microservices/web
+
+    steps:
+
+    - checkout: self
+
+    - task: Docker@2
+      displayName: Validate Docker Build
+      inputs:
+        command: build
+        Dockerfile: $(dockerFile)
+        buildContext: $(buildContext)
+        repository: $(imageName)
+        tags: |
+          $(Build.BuildId)

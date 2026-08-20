@@ -70,3 +70,22 @@ def test_invalid_request() -> None:
     response = client.post("/api/v1/hotels", json={"name": ""})
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid request."
+
+
+def test_update_hotel_not_found() -> None:
+    payload = {"name": "Missing Hotel", "city": "Goa", "rating": 4.0}
+    response = client.put("/api/v1/hotels/999", json=payload)
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Hotel not found."
+
+
+def test_delete_hotel_not_found() -> None:
+    response = client.delete("/api/v1/hotels/999")
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Hotel not found."
+
+
+def test_create_hotel_invalid_rating() -> None:
+    payload = {"name": "Too High", "city": "Pune", "rating": 9.5}
+    response = client.post("/api/v1/hotels", json=payload)
+    assert response.status_code == 400

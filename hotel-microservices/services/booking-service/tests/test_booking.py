@@ -97,3 +97,66 @@ def test_health_and_ready() -> None:
     assert health.json() == {"status": "healthy", "service": "booking-service"}
     assert ready.status_code == 200
     assert ready.json() == {"status": "ready", "service": "booking-service"}
+
+
+def test_list_bookings() -> None:
+    with (
+        patch("app.main.room_client.get_availability", return_value=True),
+        patch("app.main.room_client.reserve_room"),
+    ):
+        client.post("/api/v1/bookings", json=BOOKING_PAYLOAD)
+
+    response = client.get("/api/v1/bookings")
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["status"] == "CONFIRMED"
+
+
+def test_cancel_booking_not_found() -> None:
+    response = client.delete("/api/v1/bookings/999")
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Booking not found."
+
+
+def test_cancel_already_cancelled() -> None:
+    with (
+        patch("app.main.room_client.get_availability", return_value=True),
+        patch("app.main.room_client.reserve_room"),
+    ):
+        created = client.post("/api/v1/bookings", json=BOOKING_PAYLOAD).json()
+
+    with patch("app.main.room_client.release_room"):
+        first = client.delete(f"/api/v1/bookings/{created['booking_id']}")
+        second = client.delete(f"/api/v1/bookings/{created['booking_id']}")
+
+    assert first.status_code == 200
+    assert second.status_code == 409
+    assert second.json()["detail"] == "Booking is already cancelled."
+
+
+def test_invalid_dates() -> None:
+    payload = dict(BOOKING_PAYLOAD)
+    payload["check_out"] = "2026-08-01"
+    response = client.post("/api/v1/bookings", json=payload)
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid request."
+
+
+def test_invalid_email() -> None:
+    payload = dict(BOOKING_PAYLOAD)
+    payload["customer_email"] = "not-an-email"
+    response = client.post("/api/v1/bookings", json=payload)
+    assert response.status_code == 400
+
+
+def test_room_not_found_during_booking() -> None:
+    from fastapi import HTTPException
+
+    with patch(
+        "app.main.room_client.get_availability",
+        side_effect=HTTPException(status_code=404, detail="Room not found."),
+    ):
+        response = client.post("/api/v1/bookings", json=BOOKING_PAYLOAD)
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Room not found."
