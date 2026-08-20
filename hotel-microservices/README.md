@@ -1,8 +1,10 @@
 # Hotel Booking Microservices — Phase 1
 
-Local hotel booking application made of three independent Python microservices. All data is in-memory. Services talk to each other over REST and run together with Docker Compose.
+Local hotel booking application made of three independent Python microservices plus a website. All data is in-memory. Services talk to each other over REST and run together with Docker Compose.
 
-This phase does **not** use a database, Redis, Azure, Kubernetes, Terraform, Kafka, RabbitMQ, authentication, an API gateway, or a service mesh.
+This phase does **not** use a database, Redis, Azure, Kubernetes, Terraform, Kafka, RabbitMQ, authentication, or a service mesh.
+
+Open the website at **http://localhost:8080** after `docker compose up`.
 
 ---
 
@@ -10,21 +12,35 @@ This phase does **not** use a database, Redis, Azure, Kubernetes, Terraform, Kaf
 
 ```
                          Host machine
-  localhost:8000          localhost:8002           localhost:8003
-        |                       |                        |
-        v                       v                        v
- +--------------+        +--------------+         +-----------------+
- | Hotel        |        | Room         |         | Booking         |
- | Service      |        | Service      |         | Service         |
- | :8000        |        | :8000        |         | :8000           |
- +--------------+        +--------------+         +-----------------+
-        |                       ^                        |
-        |                       |   HTTP REST            |
-        |                       +------------------------+
-        |                       ROOM_SERVICE_URL
-        |                       http://room-service:8000
-        |
-        +-------- Docker Compose network: hotel-network --------+
+              http://localhost:8080  (StayWell website)
+                           |
+                           v
+                    +--------------+
+                    | Web (nginx)  |
+                    | static UI    |
+                    | API proxy    |
+                    +------+-------+
+                           |
+         +-----------------+------------------+
+         |                 |                  |
+         v                 v                  v
+ /api/v1/hotels     /api/v1/rooms      /api/v1/bookings
+         |                 |                  |
+ +--------------+   +--------------+   +-----------------+
+ | Hotel        |   | Room         |   | Booking         |
+ | Service      |   | Service      |   | Service         |
+ | :8000        |   | :8000        |   | :8000           |
+ +--------------+   +--------------+   +--------+--------+
+                            ^                   |
+                            |   HTTP REST       |
+                            +-------------------+
+                            ROOM_SERVICE_URL
+                            http://room-service:8000
+
+ Also reachable directly:
+   Hotel    http://localhost:8000
+   Room     http://localhost:8002
+   Booking  http://localhost:8003
 
  Booking flow:
 
@@ -68,6 +84,16 @@ Creates, lists, and cancels bookings. It **never** reads Room Service memory. It
 
 - Base URL on the host: `http://localhost:8003`
 - `ROOM_SERVICE_URL=http://room-service:8000` inside Docker Compose
+
+### Website (StayWell)
+
+The hotel booking UI at `http://localhost:8080`. It is a static site served by nginx. The browser calls:
+
+- `/api/v1/hotels` → Hotel Service
+- `/api/v1/rooms` → Room Service
+- `/api/v1/bookings` → Booking Service
+
+You can browse hotels, see rooms and availability, create a booking, and cancel a booking. The website does not store data itself.
 
 ---
 
@@ -118,13 +144,17 @@ hotel-microservices/
 │   ├── hotel-service/
 │   ├── room-service/
 │   └── booking-service/
+├── web/
+│   ├── public/
+│   ├── nginx.conf
+│   └── Dockerfile
 ├── docker-compose.yml
 ├── .env.example
 ├── .gitignore
 └── README.md
 ```
 
-Each service contains `app/` (FastAPI), `tests/`, `requirements.txt`, `Dockerfile`, and `.dockerignore`.
+Each backend service contains `app/` (FastAPI), `tests/`, `requirements.txt`, `Dockerfile`, and `.dockerignore`. The website lives in `web/`.
 
 ---
 
@@ -168,6 +198,10 @@ docker compose up -d --build room-service
 ```bash
 docker compose up -d
 ```
+
+Open the website:
+
+[http://localhost:8080](http://localhost:8080)
 
 Check containers:
 
@@ -347,3 +381,4 @@ HTTP errors used by the APIs:
 | hotel-service | 8000 | 8000 |
 | room-service | 8000 | 8002 |
 | booking-service | 8000 | 8003 |
+| web | 8080 | 8080 |
