@@ -11,6 +11,9 @@ test-results/
 coverage/
 htmlcov/
 coverage.xml
+.coverage
+*.coverage
+.pytest_cache/
 
 *.egg-info/
 .eggs/
