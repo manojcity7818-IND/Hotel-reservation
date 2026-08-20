@@ -1,0 +1,78 @@
+services:
+  hotel-service:
+    build:
+      context: ./services/hotel-service
+      dockerfile: Dockerfile
+    container_name: hotel-service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    networks:
+      - hotel-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  room-service:
+    build:
+      context: ./services/room-service
+      dockerfile: Dockerfile
+    container_name: room-service
+    restart: unless-stopped
+    ports:
+      - "8002:8000"
+    networks:
+      - hotel-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  booking-service:
+    build:
+      context: ./services/booking-service
+      dockerfile: Dockerfile
+    container_name: booking-service
+    restart: unless-stopped
+    ports:
+      - "8003:8000"
+    environment:
+      ROOM_SERVICE_URL: http://room-service:8000
+    depends_on:
+      room-service:
+        condition: service_healthy
+    networks:
+      - hotel-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+networks:
+  hotel-network:
+    driver: bridge
