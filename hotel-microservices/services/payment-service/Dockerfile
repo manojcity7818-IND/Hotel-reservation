@@ -15,7 +15,5 @@ USER appuser
 EXPOSE 8000
 
 ENV PYTHONUNBUFFERED=1
-ENV ROOM_SERVICE_URL=http://room-service:8000
-ENV PAYMENT_SERVICE_URL=http://payment-service:8000
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

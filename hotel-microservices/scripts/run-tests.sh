@@ -31,6 +31,7 @@ run_service_tests() {
 run_service_tests hotel-service
 run_service_tests room-service
 run_service_tests booking-service
+run_service_tests payment-service
 
 echo "===== Running website tests ====="
 "$PYTHON" -m pip install pytest==8.3.4

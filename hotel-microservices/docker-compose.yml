@@ -55,9 +55,35 @@ services:
       - "8003:8000"
     environment:
       ROOM_SERVICE_URL: http://room-service:8000
+      PAYMENT_SERVICE_URL: http://payment-service:8000
     depends_on:
       room-service:
         condition: service_healthy
+      payment-service:
+        condition: service_healthy
+    networks:
+      - hotel-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  payment-service:
+    build:
+      context: ./services/payment-service
+      dockerfile: Dockerfile
+    container_name: payment-service
+    restart: unless-stopped
+    ports:
+      - "8004:8000"
     networks:
       - hotel-network
     healthcheck:
@@ -87,6 +113,8 @@ services:
       room-service:
         condition: service_healthy
       booking-service:
+        condition: service_healthy
+      payment-service:
         condition: service_healthy
     networks:
       - hotel-network

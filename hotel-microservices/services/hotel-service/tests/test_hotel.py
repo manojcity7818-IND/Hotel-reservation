@@ -16,19 +16,21 @@ def test_get_hotels() -> None:
     hotels = response.json()
     names = {hotel["name"] for hotel in hotels}
     cities = {hotel["city"] for hotel in hotels}
-    assert len(hotels) >= 16
+    assert len(hotels) >= 150
     assert "Grand Hyderabad Hotel" in names
     assert "Bangalore Palace Hotel" in names
     assert {"Hyderabad", "Bangalore", "Mumbai", "New Delhi", "Chennai", "Goa"}.issubset(
         cities
     )
+    hyderabad = [hotel for hotel in hotels if hotel["city"] == "Hyderabad"]
+    assert 15 <= len(hyderabad) <= 20
 
 
 def test_filter_hotels_by_city() -> None:
     response = client.get("/api/v1/hotels", params={"q": "Mumbai"})
     assert response.status_code == 200
     hotels = response.json()
-    assert hotels
+    assert 15 <= len(hotels) <= 20
     assert all("mumbai" in hotel["city"].lower() or "mumbai" in hotel["name"].lower() for hotel in hotels)
 
 

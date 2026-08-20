@@ -20,6 +20,7 @@ def test_app_calls_all_microservices() -> None:
     js = (PUBLIC / "app.js").read_text(encoding="utf-8")
     assert "/api/v1/hotels" in js
     assert "/api/v1/rooms" in js
+    assert "/api/v1/payments" in js
     assert "/api/v1/bookings" in js
     assert 'method: "POST"' in js
     assert 'method: "DELETE"' in js

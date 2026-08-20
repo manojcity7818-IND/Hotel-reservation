@@ -47,6 +47,12 @@ function formatLongDate(value) {
   });
 }
 
+function nightsBetween(checkIn, checkOut) {
+  const start = new Date(`${checkIn}T00:00:00`);
+  const end = new Date(`${checkOut}T00:00:00`);
+  return Math.max(1, Math.round((end - start) / 86400000));
+}
+
 function money(value) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -99,6 +105,7 @@ function parseRoute() {
   if (parts[0] === "book" && parts[1]) {
     return { name: "book", roomId: Number(parts[1]), hotelId: Number(parts[2] || 0), query };
   }
+  if (parts[0] === "pay" && parts[1]) return { name: "pay", bookingId: Number(parts[1]), query };
   if (parts[0] === "bookings") return { name: "bookings", query };
   return { name: "home", query };
 }
@@ -354,7 +361,7 @@ async function renderBook(roomId, hotelId) {
           <label>Email <input name="customer_email" type="email" required placeholder="aryan@example.com" /></label>
           <label>Check-in <input name="check_in" type="date" required min="${isoDate(0)}" value="${checkIn}" /></label>
           <label>Check-out <input name="check_out" type="date" required min="${isoDate(0)}" value="${checkOut}" /></label>
-          <button class="btn" type="submit">Confirm booking</button>
+          <button class="btn" type="submit">Continue to payment</button>
         </form>
       </section>
     `;
@@ -364,11 +371,91 @@ async function renderBook(roomId, hotelId) {
       const payload = Object.fromEntries(form.entries());
       payload.hotel_id = hotel.id;
       payload.room_id = room.id;
+      payload.amount = nightsBetween(payload.check_in, payload.check_out) * room.price_per_night;
       const button = event.target.querySelector("button");
       button.disabled = true;
       try {
-        await api("/api/v1/bookings", { method: "POST", body: JSON.stringify(payload) });
-        showToast("Booking confirmed on Aryanstays");
+        const booking = await api("/api/v1/bookings", { method: "POST", body: JSON.stringify(payload) });
+        showToast("Room reserved. Complete payment to confirm.");
+        window.location.hash = `#/pay/${booking.booking_id}`;
+      } catch (error) {
+        showToast(error.message);
+        button.disabled = false;
+      }
+    });
+  } catch (error) {
+    app.innerHTML = `<section class="page-width"><div class="error">${error.message}</div></section>`;
+  }
+}
+
+async function renderPay(bookingId) {
+  showHome(false);
+  app.innerHTML = `<section class="page-width"><p class="muted">Loading payment…</p></section>`;
+  try {
+    const [booking, methods] = await Promise.all([
+      api(`/api/v1/bookings/${bookingId}`),
+      api("/api/v1/payments/methods"),
+    ]);
+    if (booking.status === "CONFIRMED") {
+      window.location.hash = "#/bookings";
+      return;
+    }
+    app.innerHTML = `
+      <section class="page-width" style="padding-top:32px">
+        <h2>Pay for booking #${booking.booking_id}</h2>
+        <p class="muted">Amount payable: <strong>${money(booking.amount)}</strong></p>
+        <form class="form" id="payment-form">
+          <div class="pay-methods">
+            ${methods
+              .map(
+                (item, index) => `
+              <label class="pay-method">
+                <input type="radio" name="method" value="${item.method}" ${index === 0 ? "checked" : ""} />
+                <strong>${item.label}</strong>
+                <span>${item.description}</span>
+              </label>`
+              )
+              .join("")}
+          </div>
+          <label>Payer name <input name="payer_name" required value="${booking.customer_name}" /></label>
+          <div id="method-fields"></div>
+          <button class="btn" type="submit">Pay ${money(booking.amount)}</button>
+        </form>
+      </section>
+    `;
+    const form = document.getElementById("payment-form");
+    const fields = document.getElementById("method-fields");
+    const renderFields = () => {
+      const method = form.method.value;
+      if (method === "UPI") {
+        fields.innerHTML = `<label>UPI ID <input name="upi_id" required placeholder="name@upi" /></label>`;
+      } else if (method === "CARD") {
+        fields.innerHTML = `
+          <label>Card holder <input name="card_holder" required /></label>
+          <label>Card number <input name="card_number" required placeholder="4111 1111 1111 1111" /></label>
+        `;
+      } else if (method === "NET_BANKING") {
+        fields.innerHTML = `<label>Bank name <input name="bank_name" required placeholder="HDFC, SBI, ICICI" /></label>`;
+      } else {
+        fields.innerHTML = `<label>Wallet <input name="wallet_name" required placeholder="Paytm, Amazon Pay" /></label>`;
+      }
+    };
+    form.querySelectorAll("input[name=method]").forEach((input) => input.addEventListener("change", renderFields));
+    renderFields();
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const data = Object.fromEntries(new FormData(form).entries());
+      data.booking_id = booking.booking_id;
+      data.amount = booking.amount;
+      const button = form.querySelector("button");
+      button.disabled = true;
+      try {
+        const payment = await api("/api/v1/payments", { method: "POST", body: JSON.stringify(data) });
+        await api(`/api/v1/bookings/${booking.booking_id}/pay`, {
+          method: "POST",
+          body: JSON.stringify({ payment_id: payment.payment_id }),
+        });
+        showToast("Payment successful. Booking confirmed.");
         window.location.hash = "#/bookings";
       } catch (error) {
         showToast(error.message);
@@ -399,7 +486,12 @@ async function renderBookings() {
             <p>${booking.customer_name} · ${booking.customer_email}</p>
             <p class="muted">${booking.check_in} to ${booking.check_out}</p>
             <p class="muted">Hotel ${booking.hotel_id} · Room ${booking.room_id}</p>
-            ${booking.status === "CONFIRMED" ? `<button class="btn danger" data-cancel="${booking.booking_id}">Cancel booking</button>` : ""}
+            ${
+                booking.status === "PENDING_PAYMENT"
+                  ? `<a class="btn" href="#/pay/${booking.booking_id}">Pay now</a>`
+                  : ""
+              }
+            ${booking.status === "CONFIRMED" || booking.status === "PENDING_PAYMENT" ? `<button class="btn danger" data-cancel="${booking.booking_id}">Cancel booking</button>` : ""}
           </div></article>`
                 )
                 .join("")}</div>`
@@ -430,6 +522,7 @@ function render() {
   if (current.name === "hotels") return renderHotels(current.query);
   if (current.name === "hotel") return renderHotel(current.id);
   if (current.name === "book") return renderBook(current.roomId, current.hotelId);
+  if (current.name === "pay") return renderPay(current.bookingId);
   if (current.name === "bookings") return renderBookings();
   return renderHome();
 }

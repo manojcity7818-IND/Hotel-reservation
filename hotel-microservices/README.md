@@ -41,6 +41,7 @@ Open the website at **http://localhost:8080** after `docker compose up`.
    Hotel    http://localhost:8000
    Room     http://localhost:8002
    Booking  http://localhost:8003
+   Payment  http://localhost:8004
 
  Booking flow:
 
@@ -65,7 +66,7 @@ Open the website at **http://localhost:8080** after `docker compose up`.
 
 ### Hotel Service
 
-Owns hotel records (id, name, city, rating). Sample data includes 20 hotels across Hyderabad, Bangalore, Mumbai, New Delhi, Chennai, Goa, Jaipur, Pune, Kolkata, and Kochi.
+Owns hotel records (id, name, city, rating). Sample data includes 18 hotels in each of 10 cities (180 hotels total): Hyderabad, Bangalore, Mumbai, New Delhi, Chennai, Goa, Jaipur, Pune, Kolkata, and Kochi.
 
 `GET /api/v1/hotels?q=Mumbai` filters by city or hotel name.
 
@@ -82,10 +83,22 @@ Owns rooms and availability. Each hotel has sample rooms (for example 101/102 fo
 
 ### Booking Service
 
-Creates, lists, and cancels bookings. It **never** reads Room Service memory. It only calls Room Service REST APIs.
+Creates, lists, and cancels bookings. It **never** reads Room Service or Payment Service memory. It calls those services over REST.
 
 - Base URL on the host: `http://localhost:8003`
-- `ROOM_SERVICE_URL=http://room-service:8000` inside Docker Compose
+- `ROOM_SERVICE_URL=http://room-service:8000`
+- `PAYMENT_SERVICE_URL=http://payment-service:8000`
+
+A new booking starts as `PENDING_PAYMENT`. After Payment Service reports success, Booking Service sets the status to `CONFIRMED`.
+
+### Payment Service
+
+Takes payment for a booking. Supported methods: **UPI**, **Credit/Debit card**, **Net banking**, and **Wallet**.
+
+- Base URL on the host: `http://localhost:8004`
+- `POST /api/v1/payments` creates a payment
+- `GET /api/v1/payments/methods` lists payment options
+- Demo failures: UPI IDs ending in `@fail`, or card numbers starting with `0000`
 
 ### Website (Aryanstays)
 
@@ -94,6 +107,7 @@ The hotel booking UI at `http://localhost:8080`. It is an Agoda-style full-page 
 - `/api/v1/hotels` → Hotel Service
 - `/api/v1/rooms` → Room Service
 - `/api/v1/bookings` → Booking Service
+- `/api/v1/payments` → Payment Service
 
 You can browse hotels, see rooms and availability, create a booking, and cancel a booking. The website does not store data itself.
 
@@ -145,7 +159,8 @@ hotel-microservices/
 ├── services/
 │   ├── hotel-service/
 │   ├── room-service/
-│   └── booking-service/
+│   ├── booking-service/
+│   └── payment-service/
 ├── web/
 │   ├── public/
 │   ├── tests/
@@ -425,4 +440,5 @@ HTTP errors used by the APIs:
 | hotel-service | 8000 | 8000 |
 | room-service | 8000 | 8002 |
 | booking-service | 8000 | 8003 |
+| payment-service | 8000 | 8004 |
 | web | 8080 | 8080 |
