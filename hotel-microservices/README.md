@@ -89,7 +89,7 @@ Creates, lists, and cancels bookings. It **never** reads Room Service memory. It
 
 ### Website (Aryanstays)
 
-The hotel booking UI at `http://localhost:8080`. It follows an Agoda-style search homepage: MEGA SALE hero, destination search, date pickers, top destinations in India, and hotel result cards. The browser calls:
+The hotel booking UI at `http://localhost:8080`. It is an Agoda-style full-page experience: top promo strip, product navigation, large MEGA SALE hero, destination search with dates and guests, top destinations, deal banners, and property result cards. The browser calls:
 
 - `/api/v1/hotels` → Hotel Service
 - `/api/v1/rooms` → Room Service
