@@ -3,33 +3,172 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Aryanstays — Hotels, homes and stays</title>
+    <title>Aryanstays: Hotels, Homes and Apartments</title>
+    <link rel="preload" as="image" href="/images/hero-background.png" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
+    <div class="top-strip">
+      <span>Get extra 10% off with Aryanstays member rates</span>
+      <span>Download the app · 24/7 customer support</span>
+    </div>
+
     <header class="site-header">
       <a class="logo" href="#/">
         <span class="logo-mark">A</span>
-        Aryanstays
+        <span>Aryanstays</span>
       </a>
-      <nav class="header-nav">
-        <a href="#/" class="is-active">Hotels</a>
-        <a href="#/hotels">Homes &amp; Apts</a>
-        <a href="#/hotels">Activities</a>
+      <nav class="product-nav">
+        <a href="#/" class="is-active">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11h16v9H4zm2-6 6-4 6 4v4H6z" fill="currentColor"/></svg>
+          Hotels
+        </a>
+        <a href="#/hotels">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18v2H3zm2-7h3v6H5zm5 0h3v6h-3zm5 0h3v6h-3zM4 9l8-6 8 6v1H4z" fill="currentColor"/></svg>
+          Homes &amp; Apts
+        </a>
+        <a href="#/hotels">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7zm0 9.5A2.5 2.5 0 1012 6a2.5 2.5 0 000 5.5z" fill="currentColor"/></svg>
+          Activities
+        </a>
         <a href="#/bookings">My bookings</a>
       </nav>
+      <div class="header-tools">
+        <button type="button" class="ghost">List your place</button>
+        <button type="button" class="ghost">Help</button>
+        <button type="button" class="ghost">EN</button>
+        <button type="button" class="ghost">INR</button>
+        <button type="button" class="ghost">Sign in</button>
+        <button type="button" class="create-account">Create account</button>
+      </div>
     </header>
 
-    <main id="app"></main>
+    <div id="home-page">
+      <section class="promo-hero">
+        <div class="promo-copy">
+          <p class="promo-kicker">Limited-time deal</p>
+          <h1>MEGA SALE</h1>
+          <p class="promo-off">Up to 60% Off!</p>
+          <p class="promo-note">Book hotels, homes and apartments across India with member-only prices.</p>
+        </div>
 
+        <form class="search-panel" id="home-search-form">
+          <div class="search-tabs" role="tablist">
+            <button type="button" class="search-tab active">Hotels</button>
+            <button type="button" class="search-tab">Flights</button>
+            <button type="button" class="search-tab">Homes &amp; Apts</button>
+            <button type="button" class="search-tab">Flight + Hotel</button>
+            <button type="button" class="search-tab">Activities</button>
+            <button type="button" class="search-tab">Airport transfer</button>
+          </div>
+
+          <div class="stay-row">
+            <button type="button" class="stay-pill active" data-stay="overnight">Overnight Stays</button>
+            <button type="button" class="stay-pill" data-stay="dayuse">Day Use Stays</button>
+          </div>
+
+          <label class="field field-wide">
+            <span class="field-icon">⌕</span>
+            <input name="q" placeholder="Enter a destination or property" value="Bangalore" />
+          </label>
+
+          <div class="field-row">
+            <label class="field">
+              <span class="field-label">Check-in</span>
+              <input name="check_in" type="date" />
+            </label>
+            <label class="field">
+              <span class="field-label">Check-out</span>
+              <input name="check_out" type="date" />
+            </label>
+            <label class="field">
+              <span class="field-label">Guests</span>
+              <input name="guests" value="2 adults, 1 room" />
+            </label>
+          </div>
+
+          <div class="search-extra">
+            <label class="check">
+              <input type="checkbox" />
+              Show me only entire homes and apartments
+            </label>
+            <button type="button" class="text-link">+ Add a flight</button>
+          </div>
+
+          <button class="search-cta" type="submit">SEARCH</button>
+        </form>
+      </section>
+
+      <section class="page-width destinations-section">
+        <div class="section-head">
+          <h2>Top destinations in India</h2>
+          <p>Find stays in the cities guests book most on Aryanstays.</p>
+        </div>
+        <div class="dest-scroller" id="destinations"></div>
+      </section>
+
+      <section class="page-width">
+        <div class="deal-banners">
+          <article class="deal-banner pink">
+            <h3>Weekend getaways</h3>
+            <p>Save extra on Goa, Jaipur and hill-city escapes this month.</p>
+          </article>
+          <article class="deal-banner navy">
+            <h3>Business stays</h3>
+            <p>Flexible rates near airports and downtown business districts.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="page-width">
+        <div class="section-head">
+          <h2>Homes guests love</h2>
+          <p>Popular hotels from the Hotel and Room microservices.</p>
+        </div>
+        <div class="property-grid" id="popular-hotels"></div>
+      </section>
+
+      <section class="page-width trust-section">
+        <article>
+          <h3>Best price for your dates</h3>
+          <p>Live availability comes from Room Service, so reserved rooms cannot be double-booked.</p>
+        </article>
+        <article>
+          <h3>Book with confidence</h3>
+          <p>Booking Service confirms the stay and can release the room if you cancel.</p>
+        </article>
+        <article>
+          <h3>India-wide inventory</h3>
+          <p>Hyderabad, Bangalore, Mumbai, Delhi, Chennai, Goa, Jaipur, Pune, Kolkata and Kochi.</p>
+        </article>
+      </section>
+    </div>
+
+    <main id="app" hidden></main>
     <div id="toast" class="toast" hidden></div>
 
     <footer class="site-footer">
-      <div>
-        <strong>Aryanstays</strong>
-        <p>Search hotels across India. Powered by Hotel, Room, and Booking microservices.</p>
+      <div class="page-width footer-grid">
+        <div>
+          <strong>Aryanstays</strong>
+          <p>Hotels, homes and apartments across India. Local demo powered by three microservices.</p>
+        </div>
+        <div>
+          <h4>Explore</h4>
+          <a href="#/hotels?q=Mumbai">Mumbai hotels</a>
+          <a href="#/hotels?q=Goa">Goa stays</a>
+          <a href="#/hotels?q=New%20Delhi">Delhi hotels</a>
+        </div>
+        <div>
+          <h4>Help</h4>
+          <a href="#/bookings">Manage booking</a>
+          <a href="#/">Customer support</a>
+        </div>
+        <div>
+          <h4>Partners</h4>
+          <p>Hotel Service · Room Service · Booking Service</p>
+        </div>
       </div>
-      <p class="fine-print">Local development only. Availability is stored in memory.</p>
     </footer>
 
     <script src="/app.js"></script>

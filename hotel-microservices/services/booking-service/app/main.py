@@ -4,10 +4,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
 
-from app import data, room_client
+from app import data, payment_client, room_client
 from app.models import Booking, BookingStatus
+from app.payment_client import PaymentServiceError
 from app.room_client import RoomServiceError
-from app.schemas import BookingCreate, BookingResponse
+from app.schemas import BookingCreate, BookingPaymentComplete, BookingResponse
 
 app = FastAPI(title="Booking Service", version="1.0.0")
 app.add_middleware(
@@ -32,6 +33,16 @@ async def room_service_error_handler(
     return JSONResponse(
         status_code=503,
         content={"detail": str(exc) or "Room Service is unavailable."},
+    )
+
+
+@app.exception_handler(PaymentServiceError)
+async def payment_service_error_handler(
+    request: Request, exc: PaymentServiceError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=503,
+        content={"detail": str(exc) or "Payment Service is unavailable."},
     )
 
 
@@ -73,9 +84,32 @@ def create_booking(payload: BookingCreate) -> Booking:
         customer_email=payload.customer_email,
         check_in=payload.check_in,
         check_out=payload.check_out,
-        status=BookingStatus.CONFIRMED,
+        status=BookingStatus.PENDING_PAYMENT,
+        amount=payload.amount,
     )
     data.bookings[booking.booking_id] = booking
+    return booking
+
+
+@app.post("/api/v1/bookings/{booking_id}/pay", response_model=BookingResponse)
+def complete_payment(booking_id: int, payload: BookingPaymentComplete) -> Booking:
+    booking = data.bookings.get(booking_id)
+    if booking is None:
+        raise HTTPException(status_code=404, detail="Booking not found.")
+    if booking.status == BookingStatus.CANCELLED:
+        raise HTTPException(status_code=409, detail="Booking is already cancelled.")
+    if booking.status == BookingStatus.CONFIRMED:
+        raise HTTPException(status_code=409, detail="Booking is already paid.")
+
+    payment = payment_client.get_payment(payload.payment_id)
+    if payment.get("booking_id") != booking.booking_id:
+        raise HTTPException(status_code=409, detail="Payment does not match this booking.")
+    if payment.get("status") != "SUCCESS":
+        booking.status = BookingStatus.PAYMENT_FAILED
+        raise HTTPException(status_code=409, detail="Payment was not successful.")
+
+    booking.payment_id = payload.payment_id
+    booking.status = BookingStatus.CONFIRMED
     return booking
 
 

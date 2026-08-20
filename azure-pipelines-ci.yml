@@ -67,6 +67,7 @@ stages:
         pip install -r hotel-microservices/services/hotel-service/requirements.txt
         pip install -r hotel-microservices/services/room-service/requirements.txt
         pip install -r hotel-microservices/services/booking-service/requirements.txt
+        pip install -r hotel-microservices/services/payment-service/requirements.txt
         python -m compileall -q hotel-microservices/services hotel-microservices/web
       displayName: Install dependencies and compile
       env:
@@ -167,6 +168,10 @@ stages:
           imageName: booking-service
           dockerFile: hotel-microservices/services/booking-service/Dockerfile
           buildContext: hotel-microservices/services/booking-service
+        payment:
+          imageName: payment-service
+          dockerFile: hotel-microservices/services/payment-service/Dockerfile
+          buildContext: hotel-microservices/services/payment-service
         web:
           imageName: hotel-web
           dockerFile: hotel-microservices/web/Dockerfile

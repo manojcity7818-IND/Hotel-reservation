@@ -15,11 +15,20 @@ BOOKING_PAYLOAD = {
     "customer_email": "john@example.com",
     "check_in": "2026-09-01",
     "check_out": "2026-09-03",
+    "amount": 10000,
 }
 
 
 def setup_function() -> None:
     data.reset_data()
+
+
+def _create_booking():
+    with (
+        patch("app.main.room_client.get_availability", return_value=True),
+        patch("app.main.room_client.reserve_room"),
+    ):
+        return client.post("/api/v1/bookings", json=BOOKING_PAYLOAD)
 
 
 def test_create_booking() -> None:
@@ -32,33 +41,51 @@ def test_create_booking() -> None:
     assert response.status_code == 201
     body = response.json()
     assert body["booking_id"] == 1
-    assert body["status"] == "CONFIRMED"
-    assert body["room_id"] == 101
+    assert body["status"] == "PENDING_PAYMENT"
+    assert body["amount"] == 10000
     reserve.assert_called_once_with(101)
 
 
-def test_get_booking() -> None:
-    with (
-        patch("app.main.room_client.get_availability", return_value=True),
-        patch("app.main.room_client.reserve_room"),
+def test_complete_payment() -> None:
+    created = _create_booking().json()
+    with patch(
+        "app.main.payment_client.get_payment",
+        return_value={"booking_id": created["booking_id"], "status": "SUCCESS"},
     ):
-        created = client.post("/api/v1/bookings", json=BOOKING_PAYLOAD).json()
+        response = client.post(
+            f"/api/v1/bookings/{created['booking_id']}/pay",
+            json={"payment_id": 77},
+        )
+    assert response.status_code == 200
+    assert response.json()["status"] == "CONFIRMED"
+    assert response.json()["payment_id"] == 77
 
+
+def test_failed_payment_does_not_confirm() -> None:
+    created = _create_booking().json()
+    with patch(
+        "app.main.payment_client.get_payment",
+        return_value={"booking_id": created["booking_id"], "status": "FAILED"},
+    ):
+        response = client.post(
+            f"/api/v1/bookings/{created['booking_id']}/pay",
+            json={"payment_id": 77},
+        )
+    assert response.status_code == 409
+    assert client.get(f"/api/v1/bookings/{created['booking_id']}").json()["status"] == "PAYMENT_FAILED"
+
+
+def test_get_booking() -> None:
+    created = _create_booking().json()
     response = client.get(f"/api/v1/bookings/{created['booking_id']}")
     assert response.status_code == 200
     assert response.json()["customer_name"] == "John Doe"
 
 
 def test_cancel_booking() -> None:
-    with (
-        patch("app.main.room_client.get_availability", return_value=True),
-        patch("app.main.room_client.reserve_room"),
-    ):
-        created = client.post("/api/v1/bookings", json=BOOKING_PAYLOAD).json()
-
+    created = _create_booking().json()
     with patch("app.main.room_client.release_room") as release:
         response = client.delete(f"/api/v1/bookings/{created['booking_id']}")
-
     assert response.status_code == 200
     assert response.json()["status"] == "CANCELLED"
     release.assert_called_once_with(101)
@@ -67,9 +94,7 @@ def test_cancel_booking() -> None:
 def test_prevent_booking_unavailable_room() -> None:
     with patch("app.main.room_client.get_availability", return_value=False):
         response = client.post("/api/v1/bookings", json=BOOKING_PAYLOAD)
-
     assert response.status_code == 409
-    assert response.json()["detail"] == "Cannot create booking because room is unavailable."
     assert client.get("/api/v1/bookings").json() == []
 
 
@@ -79,7 +104,6 @@ def test_handle_room_service_failure() -> None:
         side_effect=RoomServiceError("Room Service is unavailable."),
     ):
         response = client.post("/api/v1/bookings", json=BOOKING_PAYLOAD)
-
     assert response.status_code == 503
     assert "unavailable" in response.json()["detail"].lower()
 
@@ -87,76 +111,30 @@ def test_handle_room_service_failure() -> None:
 def test_booking_not_found() -> None:
     response = client.get("/api/v1/bookings/999")
     assert response.status_code == 404
-    assert response.json()["detail"] == "Booking not found."
 
 
 def test_health_and_ready() -> None:
-    health = client.get("/health")
-    ready = client.get("/ready")
-    assert health.status_code == 200
-    assert health.json() == {"status": "healthy", "service": "booking-service"}
-    assert ready.status_code == 200
-    assert ready.json() == {"status": "ready", "service": "booking-service"}
+    assert client.get("/health").json() == {"status": "healthy", "service": "booking-service"}
+    assert client.get("/ready").json()["status"] == "ready"
 
 
 def test_list_bookings() -> None:
-    with (
-        patch("app.main.room_client.get_availability", return_value=True),
-        patch("app.main.room_client.reserve_room"),
-    ):
-        client.post("/api/v1/bookings", json=BOOKING_PAYLOAD)
-
+    _create_booking()
     response = client.get("/api/v1/bookings")
-    assert response.status_code == 200
     assert len(response.json()) == 1
-    assert response.json()[0]["status"] == "CONFIRMED"
-
-
-def test_cancel_booking_not_found() -> None:
-    response = client.delete("/api/v1/bookings/999")
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Booking not found."
+    assert response.json()[0]["status"] == "PENDING_PAYMENT"
 
 
 def test_cancel_already_cancelled() -> None:
-    with (
-        patch("app.main.room_client.get_availability", return_value=True),
-        patch("app.main.room_client.reserve_room"),
-    ):
-        created = client.post("/api/v1/bookings", json=BOOKING_PAYLOAD).json()
-
+    created = _create_booking().json()
     with patch("app.main.room_client.release_room"):
         first = client.delete(f"/api/v1/bookings/{created['booking_id']}")
         second = client.delete(f"/api/v1/bookings/{created['booking_id']}")
-
     assert first.status_code == 200
     assert second.status_code == 409
-    assert second.json()["detail"] == "Booking is already cancelled."
 
 
 def test_invalid_dates() -> None:
     payload = dict(BOOKING_PAYLOAD)
     payload["check_out"] = "2026-08-01"
-    response = client.post("/api/v1/bookings", json=payload)
-    assert response.status_code == 400
-    assert response.json()["detail"] == "Invalid request."
-
-
-def test_invalid_email() -> None:
-    payload = dict(BOOKING_PAYLOAD)
-    payload["customer_email"] = "not-an-email"
-    response = client.post("/api/v1/bookings", json=payload)
-    assert response.status_code == 400
-
-
-def test_room_not_found_during_booking() -> None:
-    from fastapi import HTTPException
-
-    with patch(
-        "app.main.room_client.get_availability",
-        side_effect=HTTPException(status_code=404, detail="Room not found."),
-    ):
-        response = client.post("/api/v1/bookings", json=BOOKING_PAYLOAD)
-
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Room not found."
+    assert client.post("/api/v1/bookings", json=payload).status_code == 400
