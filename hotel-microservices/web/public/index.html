@@ -38,6 +38,7 @@
         </div>
         <a href="#/activities" class="nav-link">Activities</a>
         <a href="#/coupons" class="nav-link">Coupons &amp; Deals</a>
+        <a href="#/trips" class="nav-link" id="nav-trips">My Trips</a>
         <div class="nav-dropdown">
           <button type="button" class="nav-link nav-drop-btn more-btn" aria-label="More" aria-expanded="false">⋯</button>
           <div class="nav-menu">
@@ -63,8 +64,8 @@
             <button type="button" class="menu-choice" data-currency="USD">USD</button>
           </div>
         </div>
-        <button type="button" class="ghost">Sign in</button>
-        <button type="button" class="create-account">Create account</button>
+        <button type="button" class="ghost" id="sign-in-btn">Sign in</button>
+        <button type="button" class="create-account" id="create-account-btn">Create account</button>
         <button type="button" class="hamburger" aria-label="Menu">☰</button>
       </div>
     </header>
@@ -103,8 +104,11 @@
           </div>
 
           <label class="field field-wide">
-            <span class="field-icon">⌕</span>
-            <input name="q" placeholder="Enter a destination or property" value="Bangalore" />
+            <span class="field-icon">🔍</span>
+            <span>
+              <span class="field-label">Where are you going?</span>
+              <input name="q" placeholder="Bangalore, Goa, Hyderabad..." value="Bangalore" />
+            </span>
           </label>
 
           <div class="field-row">
@@ -120,11 +124,11 @@
               <button type="button" class="field occupancy-trigger" aria-expanded="false">
                 <span class="field-icon">👤</span>
                 <span>
-                  <span class="field-label">Guests</span>
-                  <strong class="occupancy-label">2 adults, 1 room</strong>
+                  <span class="field-label">Guests &amp; rooms</span>
+                  <strong class="occupancy-label">2 Adults · 1 Room</strong>
                 </span>
               </button>
-              <input type="hidden" name="guests" value="2 adults, 1 room" />
+              <input type="hidden" name="guests" value="2 Adults · 1 Room" />
               <div class="occupancy-menu" hidden>
                 <div class="step-row"><span>Adults</span><div><button type="button" data-step="adults" data-dir="-1">−</button><strong data-count="adults">2</strong><button type="button" data-step="adults" data-dir="1">+</button></div></div>
                 <div class="step-row"><span>Children</span><div><button type="button" data-step="children" data-dir="-1">−</button><strong data-count="children">0</strong><button type="button" data-step="children" data-dir="1">+</button></div></div>
@@ -142,27 +146,62 @@
             <button type="button" class="text-link add-flight">+ Add a flight</button>
           </div>
 
-          <button class="search-cta" type="submit">SEARCH</button>
+          <button class="search-cta" type="submit">SEARCH HOTELS</button>
+
+          <div class="quick-filters" id="home-quick-filters">
+            <button type="button" class="chip" data-filter="popular">🔥 Popular</button>
+            <button type="button" class="chip" data-filter="free_cancel">Free cancellation</button>
+            <button type="button" class="chip" data-filter="breakfast">Breakfast included</button>
+            <button type="button" class="chip" data-filter="4star">4★ &amp; above</button>
+            <button type="button" class="chip" data-filter="pool">Pool</button>
+            <button type="button" class="chip" data-filter="parking">Parking</button>
+          </div>
         </form>
       </section>
 
       <section class="page-width destinations-section">
         <div class="section-head">
-          <h2>Top destinations in India</h2>
-          <p>Find stays in the cities guests book most on Aryanstays.</p>
+          <h2>Popular destinations</h2>
+          <p>Find stays in the cities guests book most on Aryanstays. Top destinations in India from Hotel Service.</p>
         </div>
+        <div class="dest-chips" id="dest-chips"></div>
         <div class="dest-scroller" id="destinations"></div>
       </section>
 
       <section class="page-width">
-        <div class="deal-banners">
+        <div class="section-head row">
+          <div>
+            <h2>Recommended stays</h2>
+            <p>Recommended for you — live prices from Hotel Service and Room Service.</p>
+          </div>
+          <a class="text-link view-all" href="#/hotels">View all →</a>
+        </div>
+        <div class="recommend-grid" id="recommended-stays"></div>
+      </section>
+
+      <section class="page-width">
+        <div class="section-head">
+          <h2>🔥 Exclusive deals</h2>
+          <p>Continue the MEGA SALE with weekend, bundle and member offers.</p>
+        </div>
+        <div class="deal-banners exclusive-deals">
           <article class="deal-banner pink">
-            <h3>Weekend getaways</h3>
-            <p>Save extra on Goa, Jaipur and hill-city escapes this month.</p>
+            <p class="deal-kicker">🔥 WEEKEND DEAL</p>
+            <h3>Save up to ₹2,000 on weekend stays</h3>
+            <p>Goa, Jaipur and hill-city escapes this month.</p>
+            <a class="deal-cta" href="#/coupons">Explore deals</a>
           </article>
           <article class="deal-banner navy">
-            <h3>Business stays</h3>
-            <p>Flexible rates near airports and downtown business districts.</p>
+            <p class="deal-kicker">✈️ FLIGHT + HOTEL</p>
+            <h3>Save more when booking together</h3>
+            <p>Bundle a flight with your stay and keep dates in sync.</p>
+            <a class="deal-cta" href="#/bundle">View packages</a>
+          </article>
+          <article class="deal-banner gold">
+            <p class="deal-kicker">MEMBER OFFERS</p>
+            <h3>Extra 10% off member rates</h3>
+            <p>Sign in to unlock Aryanstays member pricing.</p>
+            <a class="deal-cta" href="#/coupons">View member offers</a>
           </article>
         </div>
       </section>
@@ -176,23 +215,35 @@
       </section>
 
       <section class="page-width trust-section">
+        <h2 class="why-title">Why book with us?</h2>
         <article>
-          <h3>Best price for your dates</h3>
+          <h3>✓ Best prices</h3>
           <p>Live availability comes from Room Service, so reserved rooms cannot be double-booked.</p>
         </article>
         <article>
-          <h3>Book with confidence</h3>
-          <p>Confirmation emails are sent over SMTP. Open the local inbox at http://localhost:8025 after you book.</p>
+          <h3>✓ Free cancellation</h3>
+          <p>Cancel eligible bookings from My Trips. Room Service releases the room immediately.</p>
         </article>
         <article>
-          <h3>India-wide inventory</h3>
-          <p>Hyderabad, Bangalore, Mumbai, Delhi, Chennai, Goa, Jaipur, Pune, Kolkata and Kochi.</p>
+          <h3>✓ Secure booking</h3>
+          <p>Confirmation emails are sent over SMTP. Open the local inbox at http://localhost:8025 after you book.</p>
         </article>
       </section>
     </div>
 
     <main id="app" hidden></main>
     <div id="toast" class="toast" hidden></div>
+
+    <div class="help-widget" id="help-widget">
+      <div class="help-panel" id="help-panel" hidden>
+        <strong>💬 Need help?</strong>
+        <p>This is a static support widget for the Aryanstays demo. It is not an AI assistant.</p>
+        <p class="muted">Booking emails land in Mailpit at http://localhost:8025. Manage stays from My Trips.</p>
+        <a class="btn" href="#/trips">Open My Trips</a>
+      </div>
+      <button type="button" class="help-fab" id="help-fab" aria-expanded="false" aria-label="Need help?">💬</button>
+      <span class="help-hint">Need help?</span>
+    </div>
 
     <footer class="site-footer">
       <div class="page-width footer-grid">
@@ -208,7 +259,7 @@
         </div>
         <div>
           <h4>Help</h4>
-          <a href="#/bookings">Manage booking</a>
+          <a href="#/trips">My Trips</a>
           <a href="#/coupons">Coupons &amp; Deals</a>
           <a href="#/notifications">Booking alerts</a>
         </div>
