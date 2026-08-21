@@ -75,3 +75,66 @@ def test_reserve_server_error() -> None:
     with patch.object(room_client, "_client", return_value=_FakeClient(response)):
         with pytest.raises(room_client.RoomServiceError):
             room_client.reserve_room(101)
+
+
+def test_get_availability_unexpected_status() -> None:
+    with patch.object(room_client, "_client", return_value=_FakeClient(_FakeResponse(400))):
+        with pytest.raises(HTTPException) as exc:
+            room_client.get_availability(101)
+    assert exc.value.status_code == 502
+
+
+def test_get_availability_server_error() -> None:
+    with patch.object(room_client, "_client", return_value=_FakeClient(_FakeResponse(503))):
+        with pytest.raises(room_client.RoomServiceError):
+            room_client.get_availability(101)
+
+
+def test_reserve_room_not_found() -> None:
+    with patch.object(room_client, "_client", return_value=_FakeClient(_FakeResponse(404))):
+        with pytest.raises(HTTPException) as exc:
+            room_client.reserve_room(999)
+    assert exc.value.status_code == 404
+
+
+def test_reserve_unavailable() -> None:
+    fake = MagicMock()
+    fake.__enter__.side_effect = httpx.ConnectError("down")
+    with patch.object(room_client, "_client", return_value=fake):
+        with pytest.raises(room_client.RoomServiceError):
+            room_client.reserve_room(101)
+
+
+def test_release_not_found() -> None:
+    with patch.object(room_client, "_client", return_value=_FakeClient(_FakeResponse(404))):
+        with pytest.raises(HTTPException) as exc:
+            room_client.release_room(999)
+    assert exc.value.status_code == 404
+
+
+def test_release_server_error() -> None:
+    with patch.object(room_client, "_client", return_value=_FakeClient(_FakeResponse(500))):
+        with pytest.raises(room_client.RoomServiceError):
+            room_client.release_room(101)
+
+
+def test_release_unavailable() -> None:
+    fake = MagicMock()
+    fake.__enter__.side_effect = httpx.ConnectError("down")
+    with patch.object(room_client, "_client", return_value=fake):
+        with pytest.raises(room_client.RoomServiceError):
+            room_client.release_room(101)
+
+
+def test_reserve_unexpected_status() -> None:
+    with patch.object(room_client, "_client", return_value=_FakeClient(_FakeResponse(400))):
+        with pytest.raises(HTTPException) as exc:
+            room_client.reserve_room(101)
+    assert exc.value.status_code == 502
+
+
+def test_release_unexpected_status() -> None:
+    with patch.object(room_client, "_client", return_value=_FakeClient(_FakeResponse(400))):
+        with pytest.raises(HTTPException) as exc:
+            room_client.release_room(101)
+    assert exc.value.status_code == 502

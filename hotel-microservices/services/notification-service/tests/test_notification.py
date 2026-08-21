@@ -125,3 +125,76 @@ def test_invalid_event() -> None:
 def test_health_and_ready() -> None:
     assert client.get("/health").json()["service"] == "notification-service"
     assert client.get("/ready").json()["status"] == "ready"
+
+
+def test_sms_skips_smtp() -> None:
+    with patch("app.main.send_email") as send_email:
+        response = client.post(
+            "/api/v1/notifications",
+            json={
+                "booking_id": 4,
+                "event": "BOOKING_CREATED",
+                "channel": "SMS",
+                "recipient": "+919999999999",
+                "subject": "SMS alert",
+                "message": "Reserved",
+            },
+        )
+    assert response.status_code == 201
+    assert response.json()["status"] == "SENT"
+    send_email.assert_not_called()
+
+
+def test_list_all_notifications() -> None:
+    with patch("app.main.send_email"):
+        client.post(
+            "/api/v1/notifications",
+            json={
+                "booking_id": 1,
+                "event": "BOOKING_CREATED",
+                "recipient": "a@example.com",
+                "subject": "A",
+                "message": "A",
+            },
+        )
+        client.post(
+            "/api/v1/notifications",
+            json={
+                "booking_id": 2,
+                "event": "BOOKING_CONFIRMED",
+                "recipient": "b@example.com",
+                "subject": "B",
+                "message": "B",
+            },
+        )
+    response = client.get("/api/v1/notifications")
+    assert len(response.json()) == 2
+
+
+def test_missing_recipient() -> None:
+    response = client.post(
+        "/api/v1/notifications",
+        json={
+            "booking_id": 1,
+            "event": "BOOKING_CREATED",
+            "subject": "Hi",
+            "message": "Hi",
+        },
+    )
+    assert response.status_code == 400
+
+
+def test_unhandled_error_returns_500() -> None:
+    with patch("app.main.data.next_id", side_effect=RuntimeError("boom")):
+        with patch("app.main.send_email"):
+            response = client.post(
+                "/api/v1/notifications",
+                json={
+                    "booking_id": 1,
+                    "event": "BOOKING_CREATED",
+                    "recipient": "a@example.com",
+                    "subject": "Hi",
+                    "message": "Hi",
+                },
+            )
+    assert response.status_code == 500

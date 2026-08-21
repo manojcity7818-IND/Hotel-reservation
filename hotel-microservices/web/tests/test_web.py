@@ -48,3 +48,26 @@ def test_styles_exist() -> None:
     assert "#home-page" in css
     assert ".occupancy" in css
     assert ".nav-dropdown" in css
+
+
+def test_nginx_proxies_every_service() -> None:
+    nginx = (PUBLIC.parent / "nginx.conf").read_text(encoding="utf-8")
+    assert "http://hotel-service:8000" in nginx
+    assert "http://room-service:8000" in nginx
+    assert "http://booking-service:8000" in nginx
+    assert "http://payment-service:8000" in nginx
+    assert "http://notification-service:8000" in nginx
+    assert "/api/v1/notifications" in nginx
+
+
+def test_app_covers_booking_email_and_occupancy() -> None:
+    js = (PUBLIC / "app.js").read_text(encoding="utf-8")
+    html = (PUBLIC / "index.html").read_text(encoding="utf-8")
+    assert "bindOccupancy" in js
+    assert "data-stay" in js
+    assert "renderNotifications" in js
+    assert "notifications?booking_id" in js
+    assert "#/coupons" in js or "coupons" in js
+    assert "#/bundle" in js or "bundle" in js
+    assert "http://localhost:8025" in html or "localhost:8025" in html
+    assert "Mailpit" in html or "8025" in html

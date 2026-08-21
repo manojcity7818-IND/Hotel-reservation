@@ -157,3 +157,110 @@ def test_invalid_dates() -> None:
     payload = dict(BOOKING_PAYLOAD)
     payload["check_out"] = "2026-08-01"
     assert client.post("/api/v1/bookings", json=payload).status_code == 400
+
+
+def test_invalid_email() -> None:
+    payload = dict(BOOKING_PAYLOAD)
+    payload["customer_email"] = "not-an-email"
+    assert client.post("/api/v1/bookings", json=payload).status_code == 400
+
+
+def test_missing_amount() -> None:
+    payload = dict(BOOKING_PAYLOAD)
+    payload.pop("amount")
+    assert client.post("/api/v1/bookings", json=payload).status_code == 400
+
+
+def test_pay_booking_not_found() -> None:
+    response = client.post("/api/v1/bookings/999/pay", json={"payment_id": 1})
+    assert response.status_code == 404
+
+
+def test_pay_cancelled_booking() -> None:
+    created = _create_booking().json()
+    with patch("app.main.room_client.release_room"):
+        client.delete(f"/api/v1/bookings/{created['booking_id']}")
+    response = client.post(
+        f"/api/v1/bookings/{created['booking_id']}/pay",
+        json={"payment_id": 1},
+    )
+    assert response.status_code == 409
+    assert "cancelled" in response.json()["detail"].lower()
+
+
+def test_pay_already_confirmed() -> None:
+    created = _create_booking().json()
+    with (
+        patch(
+            "app.main.payment_client.get_payment",
+            return_value={"booking_id": created["booking_id"], "status": "SUCCESS"},
+        ),
+        patch("app.main.notification_client.notify_booking"),
+    ):
+        first = client.post(
+            f"/api/v1/bookings/{created['booking_id']}/pay",
+            json={"payment_id": 77},
+        )
+        second = client.post(
+            f"/api/v1/bookings/{created['booking_id']}/pay",
+            json={"payment_id": 78},
+        )
+    assert first.status_code == 200
+    assert second.status_code == 409
+    assert "already paid" in second.json()["detail"].lower()
+
+
+def test_payment_does_not_match_booking() -> None:
+    created = _create_booking().json()
+    with patch(
+        "app.main.payment_client.get_payment",
+        return_value={"booking_id": 999, "status": "SUCCESS"},
+    ):
+        response = client.post(
+            f"/api/v1/bookings/{created['booking_id']}/pay",
+            json={"payment_id": 77},
+        )
+    assert response.status_code == 409
+    assert "does not match" in response.json()["detail"].lower()
+
+
+def test_payment_service_unavailable() -> None:
+    from app.payment_client import PaymentServiceError
+
+    created = _create_booking().json()
+    with patch(
+        "app.main.payment_client.get_payment",
+        side_effect=PaymentServiceError("Payment Service is unavailable."),
+    ):
+        response = client.post(
+            f"/api/v1/bookings/{created['booking_id']}/pay",
+            json={"payment_id": 77},
+        )
+    assert response.status_code == 503
+    assert "payment" in response.json()["detail"].lower()
+
+
+def test_cancel_booking_not_found() -> None:
+    response = client.delete("/api/v1/bookings/999")
+    assert response.status_code == 404
+
+
+def test_create_booking_still_succeeds_if_email_fails() -> None:
+    with (
+        patch("app.main.room_client.get_availability", return_value=True),
+        patch("app.main.room_client.reserve_room"),
+        patch("app.main.notification_client.notify_booking", return_value=None),
+    ):
+        response = client.post("/api/v1/bookings", json=BOOKING_PAYLOAD)
+    assert response.status_code == 201
+    assert response.json()["status"] == "PENDING_PAYMENT"
+
+
+def test_unhandled_error_returns_500() -> None:
+    with (
+        patch("app.main.room_client.get_availability", return_value=True),
+        patch("app.main.room_client.reserve_room"),
+        patch("app.main.data.next_id", side_effect=RuntimeError("boom")),
+    ):
+        response = client.post("/api/v1/bookings", json=BOOKING_PAYLOAD)
+    assert response.status_code == 500
