@@ -33,3 +33,4 @@ class NotificationResponse(BaseModel):
     subject: str
     message: str
     status: str
+    error: str | None = None

@@ -24,3 +24,4 @@ class Notification(BaseModel):
     subject: str
     message: str
     status: str = "SENT"
+    error: str | None = None

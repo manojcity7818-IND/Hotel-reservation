@@ -518,7 +518,7 @@ async function renderBook(roomId, hotelId) {
       button.disabled = true;
       try {
         const booking = await api("/api/v1/bookings", { method: "POST", body: JSON.stringify(payload) });
-        showToast("Room reserved. Complete payment to confirm.");
+        showToast("Room reserved. A confirmation email was sent — open http://localhost:8025 to read it.");
         window.location.hash = `#/pay/${booking.booking_id}`;
       } catch (error) {
         showToast(error.message);
@@ -597,7 +597,7 @@ async function renderPay(bookingId) {
           method: "POST",
           body: JSON.stringify({ payment_id: payment.payment_id }),
         });
-        showToast("Payment successful. Booking confirmed.");
+        showToast("Payment successful. Confirmation email sent — check http://localhost:8025");
         window.location.hash = "#/bookings";
       } catch (error) {
         showToast(error.message);
@@ -649,7 +649,7 @@ async function renderBookings() {
           ? notes
               .map(
                 (note) =>
-                  `<p class="muted">${note.event} · ${note.channel} to ${note.recipient}<br>${note.subject}</p>`
+                  `<p class="muted">${note.event} · ${note.status} · emailed to ${note.recipient}<br>${note.subject}${note.error ? ` · ${note.error}` : ""}</p>`
               )
               .join("")
           : `<p class="muted">No alerts yet for this booking.</p>`;
@@ -662,7 +662,7 @@ async function renderBookings() {
         button.disabled = true;
         try {
           await api(`/api/v1/bookings/${button.dataset.cancel}`, { method: "DELETE" });
-          showToast("Booking cancelled and room released");
+          showToast("Booking cancelled. Cancellation email sent — check http://localhost:8025");
           renderBookings();
         } catch (error) {
           showToast(error.message);
@@ -688,7 +688,8 @@ async function renderNotifications() {
     app.innerHTML = `
       <section class="feature-page">
         <h2>Booking notifications</h2>
-        <p class="muted">Email alerts stored by Notification Service after each booking change.</p>
+        <p>Notification Service now sends real SMTP email for each booking change.</p>
+        <p class="muted">Open the local inbox at <a href="http://localhost:8025" target="_blank" rel="noreferrer">http://localhost:8025</a> (Mailpit). Gmail/Outlook only receive mail if you set SMTP_HOST, SMTP_USER and SMTP_PASSWORD in docker-compose.</p>
         ${
           notes.length
             ? `<div class="notice-list">${notes
@@ -696,13 +697,15 @@ async function renderNotifications() {
                   (note) => `
               <article class="notice-card">
                 <strong>${note.event}</strong>
+                <span class="badge ${note.status === "FAILED" ? "cancelled" : ""}">${note.status}</span>
                 <p>${note.subject}</p>
                 <p class="muted">${note.channel} · ${note.recipient} · booking #${note.booking_id}</p>
                 <p>${note.message}</p>
+                ${note.error ? `<p class="error">${note.error}</p>` : ""}
               </article>`
                 )
                 .join("")}</div>`
-            : `<div class="empty">No notifications yet. Create a booking to send the first alert.</div>`
+            : `<div class="empty">No notifications yet. Create a booking to send the first email.</div>`
         }
       </section>
     `;
