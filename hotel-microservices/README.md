@@ -1,10 +1,10 @@
 # Hotel Booking Microservices — Phase 1
 
-Local hotel booking application made of four independent Python microservices plus a website. All data is in-memory. Services talk to each other over REST and run together with Docker Compose.
+Local hotel booking application made of five independent Python microservices plus a website. All data is in-memory. Services talk to each other over REST and run together with Docker Compose.
 
 This phase does **not** use a database, Redis, Azure, Kubernetes, Terraform, Kafka, RabbitMQ, authentication, or a service mesh.
 
-Open the website at **http://localhost:8080** after `docker compose up`. The main screen uses `/images/hero-background.png` as the homepage background.
+Open the website at **http://localhost:8080** after `docker compose up`. The main screen uses `/images/hero-background.png` as the homepage background, with an Agoda-style MEGA SALE search panel.
 
 ---
 
@@ -38,10 +38,29 @@ Open the website at **http://localhost:8080** after `docker compose up`. The mai
                             http://room-service:8000
 
  Also reachable directly:
-   Hotel    http://localhost:8000
-   Room     http://localhost:8002
-   Booking  http://localhost:8003
-   Payment  http://localhost:8004
+   Hotel         http://localhost:8000
+   Room          http://localhost:8002
+   Booking       http://localhost:8003
+   Payment       http://localhost:8004
+   Notification  http://localhost:8005
+
+ Booking flow:
+
+ Client
+   |
+   | POST /api/v1/bookings
+   v
+ Booking Service
+   |
+   | GET  /api/v1/rooms/{id}/availability
+   | POST /api/v1/rooms/{id}/reserve
+   v
+ Room Service  (in-memory availability)
+   |
+   +-- unavailable --> HTTP 409
+   +-- available   --> reserve, then Booking Service stores the booking
+                       and POSTs /api/v1/notifications (BOOKING_CREATED)
+```
 
  Booking flow:
 
@@ -83,13 +102,14 @@ Owns rooms and availability. Each hotel has sample rooms (for example 101/102 fo
 
 ### Booking Service
 
-Creates, lists, and cancels bookings. It **never** reads Room Service or Payment Service memory. It calls those services over REST.
+Creates, lists, and cancels bookings. It **never** reads other services' memory. It calls Room, Payment, and Notification services over REST.
 
 - Base URL on the host: `http://localhost:8003`
 - `ROOM_SERVICE_URL=http://room-service:8000`
 - `PAYMENT_SERVICE_URL=http://payment-service:8000`
+- `NOTIFICATION_SERVICE_URL=http://notification-service:8000`
 
-A new booking starts as `PENDING_PAYMENT`. After Payment Service reports success, Booking Service sets the status to `CONFIRMED`.
+A new booking starts as `PENDING_PAYMENT`. After Payment Service reports success, Booking Service sets the status to `CONFIRMED`. Each status change sends an in-memory email notification.
 
 ### Payment Service
 
@@ -100,6 +120,15 @@ Takes payment for a booking. Supported methods: **UPI**, **Credit/Debit card**, 
 - `GET /api/v1/payments/methods` lists payment options
 - Demo failures: UPI IDs ending in `@fail`, or card numbers starting with `0000`
 
+### Notification Service
+
+Stores booking alerts in memory (no real SMTP). Booking Service posts an email-style record when a stay is created, confirmed, cancelled, or when payment fails.
+
+- Base URL on the host: `http://localhost:8005`
+- `POST /api/v1/notifications` creates an alert
+- `GET /api/v1/notifications?booking_id=` lists alerts for a booking
+- Events: `BOOKING_CREATED`, `BOOKING_CONFIRMED`, `BOOKING_CANCELLED`, `PAYMENT_FAILED`
+
 ### Website (Aryanstays)
 
 The hotel booking UI at `http://localhost:8080`. It is an Agoda-style full-page experience: top promo strip, product navigation, large MEGA SALE hero, destination search with dates and guests, top destinations, deal banners, and property result cards. The browser calls:
@@ -108,8 +137,9 @@ The hotel booking UI at `http://localhost:8080`. It is an Agoda-style full-page 
 - `/api/v1/rooms` → Room Service
 - `/api/v1/bookings` → Booking Service
 - `/api/v1/payments` → Payment Service
+- `/api/v1/notifications` → Notification Service
 
-You can browse hotels, see rooms and availability, create a booking, and cancel a booking. The website does not store data itself.
+You can browse hotels, see rooms and availability, create a booking, pay, cancel, and read booking alerts. Extra homepage features include Flight + Hotel, Transport, Coupons & Deals, eSIM, Travel Guides, Overnight vs Day Use, an occupancy picker, and Add a flight. The website does not store data itself.
 
 ---
 
@@ -121,34 +151,38 @@ Each service has its own process, Docker image, in-memory store, and HTTP API. H
 
 ## 4. REST communication between services
 
-The only service-to-service call in Phase 1 is Booking Service → Room Service.
+Booking Service is the only service that calls other services. It never imports their memory.
 
-| Booking action | Room Service call | Result |
+| Booking action | Downstream call | Result |
 | --- | --- | --- |
 | Create booking | `GET /api/v1/rooms/{room_id}/availability` | If `available` is false, return **409** |
 | Create booking | `POST /api/v1/rooms/{room_id}/reserve` | Marks the room unavailable |
+| Create booking | `POST /api/v1/notifications` | `BOOKING_CREATED` alert (best effort) |
+| Confirm payment | `GET /api/v1/payments/{payment_id}` | Sets booking `CONFIRMED` |
+| Confirm payment | `POST /api/v1/notifications` | `BOOKING_CONFIRMED` or `PAYMENT_FAILED` |
 | Cancel booking | `POST /api/v1/rooms/{room_id}/release` | Marks the room available again |
+| Cancel booking | `POST /api/v1/notifications` | `BOOKING_CANCELLED` alert |
 
 Calls use the Compose **service name**, not `localhost`:
 
 ```
 http://room-service:8000
+http://payment-service:8000
+http://notification-service:8000
 ```
 
-`localhost` inside a container is that container itself, so Booking Service would fail if it used `localhost:8002`.
-
-If Room Service is down, Booking Service returns **503** instead of crashing.
+If Room Service is down, Booking Service returns **503** instead of crashing. If Notification Service is down, the booking still succeeds and the alert is skipped.
 
 ---
 
 ## 5. Docker architecture
 
 - Each service image is `python:3.12-slim`, runs as a non-root user, and starts Uvicorn on port **8000**.
-- Compose maps host ports: Hotel `8000`, Room `8002`, Booking `8003`.
-- All three containers join the `hotel-network` bridge network.
-- Health checks call each container's `GET /health` on `127.0.0.1:8000`.
+- Compose maps host ports: Hotel `8000`, Room `8002`, Booking `8003`, Payment `8004`, Notification `8005`, Website `8080`.
+- All containers join the `hotel-network` bridge network.
+- Health checks call each API container's `GET /health` on `127.0.0.1:8000`.
 - Restart policy: `unless-stopped`.
-- Booking Service waits until Room Service is healthy.
+- Booking Service waits until Room, Payment, and Notification services are healthy.
 
 ---
 
@@ -160,7 +194,8 @@ hotel-microservices/
 │   ├── hotel-service/
 │   ├── room-service/
 │   ├── booking-service/
-│   └── payment-service/
+│   ├── payment-service/
+│   └── notification-service/
 ├── web/
 │   ├── public/
 │   ├── tests/
@@ -181,7 +216,7 @@ Each backend service contains `app/` (FastAPI), `tests/`, `requirements.txt`, `D
 ## 7. Prerequisites
 
 - Docker Engine with Docker Compose v2
-- Ports 8000, 8002, and 8003 free on the host
+- Ports 8000, 8002, 8003, 8004, 8005, and 8080 free on the host
 - Optional for unit tests only: Python 3.12
 
 ---
@@ -235,6 +270,8 @@ Health checks from the host:
 curl http://localhost:8000/health
 curl http://localhost:8002/health
 curl http://localhost:8003/health
+curl http://localhost:8004/health
+curl http://localhost:8005/health
 ```
 
 Expected:
@@ -249,6 +286,8 @@ Readiness:
 curl http://localhost:8000/ready
 curl http://localhost:8002/ready
 curl http://localhost:8003/ready
+curl http://localhost:8004/ready
+curl http://localhost:8005/ready
 ```
 
 ---
@@ -335,8 +374,15 @@ curl -X POST http://localhost:8003/api/v1/bookings \
     "customer_name": "John Doe",
     "customer_email": "john@example.com",
     "check_in": "2026-09-01",
-    "check_out": "2026-09-03"
+    "check_out": "2026-09-03",
+    "amount": 10000
   }'
+```
+
+### List booking notifications
+
+```bash
+curl http://localhost:8005/api/v1/notifications?booking_id=1
 ```
 
 ### Get booking
@@ -398,7 +444,7 @@ Two pipelines live at the repository root:
 | File | When it runs | What it does |
 | --- | --- | --- |
 | `azure-pipelines-pr.yml` | Pull requests to `main` | Install Python 3.12, compile services, run unit tests with coverage, SonarCloud analysis, and Docker **build** validation (no push) |
-| `azure-pipelines-ci.yml` | Pushes to `main` | Run unit tests, publish the `hotel-microservices` artifact, then **build, Trivy-scan, and push** images for hotel-service, room-service, booking-service, and hotel-web |
+| `azure-pipelines-ci.yml` | Pushes to `main` | Run unit tests, publish the `hotel-microservices` artifact, then **build, Trivy-scan, and push** images for hotel-service, room-service, booking-service, payment-service, notification-service, and hotel-web |
 
 ### Create the pipelines
 
@@ -415,6 +461,8 @@ Images pushed by CI:
 - `hotel-service:$(Build.BuildId)` and `:latest`
 - `room-service:$(Build.BuildId)` and `:latest`
 - `booking-service:$(Build.BuildId)` and `:latest`
+- `payment-service:$(Build.BuildId)` and `:latest`
+- `notification-service:$(Build.BuildId)` and `:latest`
 - `hotel-web:$(Build.BuildId)` and `:latest`
 
 ---
@@ -426,7 +474,7 @@ HTTP errors used by the APIs:
 | Status | Meaning |
 | --- | --- |
 | 400 | Invalid request |
-| 404 | Hotel / room / booking not found |
+| 404 | Hotel / room / booking / payment / notification not found |
 | 409 | Room already reserved, or booking cannot be created because the room is unavailable |
 | 500 | Unexpected internal error |
 | 503 | Room Service is unavailable (Booking Service only) |
@@ -441,4 +489,5 @@ HTTP errors used by the APIs:
 | room-service | 8000 | 8002 |
 | booking-service | 8000 | 8003 |
 | payment-service | 8000 | 8004 |
+| notification-service | 8000 | 8005 |
 | web | 8080 | 8080 |

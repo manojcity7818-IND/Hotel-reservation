@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
 
-from app import data, payment_client, room_client
+from app import data, notification_client, payment_client, room_client
 from app.models import Booking, BookingStatus
 from app.payment_client import PaymentServiceError
 from app.room_client import RoomServiceError
@@ -88,6 +88,12 @@ def create_booking(payload: BookingCreate) -> Booking:
         amount=payload.amount,
     )
     data.bookings[booking.booking_id] = booking
+    notification_client.notify_booking(
+        booking,
+        "BOOKING_CREATED",
+        "Aryanstays booking received",
+        f"Hi {booking.customer_name}, booking #{booking.booking_id} is reserved. Complete payment to confirm.",
+    )
     return booking
 
 
@@ -106,10 +112,22 @@ def complete_payment(booking_id: int, payload: BookingPaymentComplete) -> Bookin
         raise HTTPException(status_code=409, detail="Payment does not match this booking.")
     if payment.get("status") != "SUCCESS":
         booking.status = BookingStatus.PAYMENT_FAILED
+        notification_client.notify_booking(
+            booking,
+            "PAYMENT_FAILED",
+            "Aryanstays payment failed",
+            f"Hi {booking.customer_name}, payment for booking #{booking.booking_id} did not succeed.",
+        )
         raise HTTPException(status_code=409, detail="Payment was not successful.")
 
     booking.payment_id = payload.payment_id
     booking.status = BookingStatus.CONFIRMED
+    notification_client.notify_booking(
+        booking,
+        "BOOKING_CONFIRMED",
+        "Aryanstays booking confirmed",
+        f"Hi {booking.customer_name}, booking #{booking.booking_id} is confirmed.",
+    )
     return booking
 
 
@@ -136,4 +154,10 @@ def cancel_booking(booking_id: int) -> Booking:
 
     room_client.release_room(booking.room_id)
     booking.status = BookingStatus.CANCELLED
+    notification_client.notify_booking(
+        booking,
+        "BOOKING_CANCELLED",
+        "Aryanstays booking cancelled",
+        f"Hi {booking.customer_name}, booking #{booking.booking_id} was cancelled and the room was released.",
+    )
     return booking

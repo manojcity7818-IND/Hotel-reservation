@@ -111,26 +111,63 @@ function parseRoute() {
   }
   if (parts[0] === "pay" && parts[1]) return { name: "pay", bookingId: Number(parts[1]), query };
   if (parts[0] === "bookings") return { name: "bookings", query };
+  if (
+    [
+      "flights",
+      "homes",
+      "activities",
+      "transfers",
+      "coupons",
+      "transport",
+      "esim",
+      "guides",
+      "bundle",
+      "notifications",
+    ].includes(parts[0])
+  ) {
+    return { name: parts[0], query };
+  }
   return { name: "home", query };
+}
+
+function occupancyMarkup(guests = "2 adults, 1 room") {
+  return `
+    <div class="occupancy">
+      <button type="button" class="field occupancy-trigger" aria-expanded="false">
+        <span class="field-icon">👤</span>
+        <span>
+          <span class="field-label">Guests</span>
+          <strong class="occupancy-label">${guests}</strong>
+        </span>
+      </button>
+      <input type="hidden" name="guests" value="${guests}" />
+      <div class="occupancy-menu" hidden>
+        <div class="step-row"><span>Adults</span><div><button type="button" data-step="adults" data-dir="-1">−</button><strong data-count="adults">2</strong><button type="button" data-step="adults" data-dir="1">+</button></div></div>
+        <div class="step-row"><span>Children</span><div><button type="button" data-step="children" data-dir="-1">−</button><strong data-count="children">0</strong><button type="button" data-step="children" data-dir="1">+</button></div></div>
+        <div class="step-row"><span>Rooms</span><div><button type="button" data-step="rooms" data-dir="-1">−</button><strong data-count="rooms">1</strong><button type="button" data-step="rooms" data-dir="1">+</button></div></div>
+        <button type="button" class="btn occupancy-apply">Done</button>
+      </div>
+    </div>
+  `;
 }
 
 function searchPanel(defaults = {}, formId = "search-form") {
   const checkIn = defaults.check_in || isoDate(10);
   const checkOut = defaults.check_out || isoDate(12);
   const destination = defaults.q || defaults.city || "Bangalore";
+  const guests = defaults.guests || "2 adults, 1 room";
   return `
     <form class="search-panel" id="${formId}">
       <div class="search-tabs">
-        <button type="button" class="search-tab active">Hotels</button>
-        <button type="button" class="search-tab">Flights</button>
-        <button type="button" class="search-tab">Homes &amp; Apts</button>
-        <button type="button" class="search-tab">Flight + Hotel</button>
-        <button type="button" class="search-tab">Activities</button>
-        <button type="button" class="search-tab">Airport transfer</button>
+        <button type="button" class="search-tab active" data-tab="hotels">Hotels</button>
+        <button type="button" class="search-tab" data-tab="homes">Homes &amp; Apts</button>
+        <button type="button" class="search-tab" data-tab="flights">Flights</button>
+        <button type="button" class="search-tab" data-tab="activities">Activities</button>
+        <button type="button" class="search-tab" data-tab="transfers">Airport transfer</button>
       </div>
       <div class="stay-row">
         <button type="button" class="stay-pill active" data-stay="overnight">Overnight Stays</button>
-        <button type="button" class="stay-pill" data-stay="dayuse">Day Use Stays</button>
+        <button type="button" class="stay-pill" data-stay="dayuse">Day Use</button>
       </div>
       <label class="field field-wide">
         <span class="field-icon">⌕</span>
@@ -140,44 +177,141 @@ function searchPanel(defaults = {}, formId = "search-form") {
         <label class="field"><span class="field-label">Check-in</span>
           <input name="check_in" type="date" value="${checkIn}" />
         </label>
-        <label class="field"><span class="field-label">Check-out</span>
+        <label class="field checkout-field"><span class="field-label">Check-out</span>
           <input name="check_out" type="date" value="${checkOut}" />
         </label>
-        <label class="field"><span class="field-label">Guests</span>
-          <input name="guests" value="${defaults.guests || "2 adults, 1 room"}" />
-        </label>
+        ${occupancyMarkup(guests)}
       </div>
       <div class="search-extra">
-        <label class="check"><input type="checkbox" /> Show me only entire homes and apartments</label>
-        <button type="button" class="text-link">+ Add a flight</button>
+        <label class="check"><input type="checkbox" name="homes_only" /> Show me only entire homes and apartments</label>
+        <button type="button" class="text-link add-flight">+ Add a flight</button>
       </div>
       <button class="search-cta" type="submit">SEARCH</button>
     </form>
   `;
 }
 
+function formatGuests(counts) {
+  const adults = `${counts.adults} adult${counts.adults === 1 ? "" : "s"}`;
+  const children = counts.children ? `, ${counts.children} child${counts.children === 1 ? "" : "ren"}` : "";
+  const rooms = `${counts.rooms} room${counts.rooms === 1 ? "" : "s"}`;
+  return `${adults}${children}, ${rooms}`;
+}
+
+function bindOccupancy(form) {
+  const root = form.querySelector(".occupancy");
+  if (!root) return;
+  const menu = root.querySelector(".occupancy-menu");
+  const trigger = root.querySelector(".occupancy-trigger");
+  const hidden = root.querySelector("input[name=guests]");
+  const label = root.querySelector(".occupancy-label");
+  const counts = { adults: 2, children: 0, rooms: 1 };
+  const sync = () => {
+    root.querySelector('[data-count="adults"]').textContent = String(counts.adults);
+    root.querySelector('[data-count="children"]').textContent = String(counts.children);
+    root.querySelector('[data-count="rooms"]').textContent = String(counts.rooms);
+    const text = formatGuests(counts);
+    hidden.value = text;
+    label.textContent = text;
+  };
+  trigger.addEventListener("click", () => {
+    menu.hidden = !menu.hidden;
+    trigger.setAttribute("aria-expanded", String(!menu.hidden));
+  });
+  root.querySelectorAll("[data-step]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const key = button.dataset.step;
+      const min = key === "adults" || key === "rooms" ? 1 : 0;
+      counts[key] = Math.max(min, counts[key] + Number(button.dataset.dir));
+      sync();
+    });
+  });
+  root.querySelector(".occupancy-apply").addEventListener("click", () => {
+    menu.hidden = true;
+    trigger.setAttribute("aria-expanded", "false");
+  });
+}
+
 function bindSearch(form) {
   if (!form || form.dataset.bound === "true") return;
   form.dataset.bound = "true";
+  bindOccupancy(form);
   form.querySelectorAll("[data-stay]").forEach((pill) => {
     pill.addEventListener("click", () => {
       form.querySelectorAll("[data-stay]").forEach((item) => item.classList.remove("active"));
       pill.classList.add("active");
+      const hero = form.closest(".promo-hero");
+      if (hero) hero.classList.toggle("dayuse", pill.dataset.stay === "dayuse");
+      if (pill.dataset.stay === "dayuse" && form.check_out && form.check_in) {
+        form.check_out.value = form.check_in.value;
+      }
     });
   });
+  form.querySelectorAll("[data-tab]").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      form.querySelectorAll("[data-tab]").forEach((item) => item.classList.remove("active"));
+      tab.classList.add("active");
+      const dest = tab.dataset.tab;
+      if (dest && dest !== "hotels" && dest !== "homes") {
+        window.location.hash = `#/${dest}`;
+      }
+    });
+  });
+  const addFlight = form.querySelector(".add-flight");
+  if (addFlight) {
+    addFlight.addEventListener("click", () => {
+      window.location.hash = "#/bundle";
+    });
+  }
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const data = new FormData(form);
+    const homesOnly = form.querySelector("[name=homes_only]")?.checked ? "1" : "";
     const params = new URLSearchParams({
       q: String(data.get("q") || "").trim(),
       check_in: String(data.get("check_in") || ""),
       check_out: String(data.get("check_out") || ""),
       guests: String(data.get("guests") || "2 adults, 1 room"),
     });
+    if (homesOnly) params.set("homes_only", "1");
     sessionStorage.setItem("aryanstaysSearch", params.toString());
     window.location.hash = `#/hotels?${params.toString()}`;
   });
 }
+
+function bindHeader() {
+  document.querySelectorAll(".nav-dropdown").forEach((dropdown) => {
+    const button = dropdown.querySelector(".nav-drop-btn");
+    if (!button || button.dataset.bound === "true") return;
+    button.dataset.bound = "true";
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      document.querySelectorAll(".nav-dropdown.open").forEach((item) => {
+        if (item !== dropdown) item.classList.remove("open");
+      });
+      dropdown.classList.toggle("open");
+      button.setAttribute("aria-expanded", String(dropdown.classList.contains("open")));
+    });
+  });
+  document.querySelectorAll("[data-lang]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const lang = document.querySelector(".lang-btn");
+      if (lang) lang.textContent = button.dataset.lang;
+      showToast(`Language set to ${button.textContent}`);
+    });
+  });
+  document.querySelectorAll("[data-currency]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const currency = document.querySelector(".currency-btn");
+      if (currency) currency.textContent = button.dataset.currency;
+      showToast(`Prices shown in ${button.textContent}`);
+    });
+  });
+}
+
+document.addEventListener("click", () => {
+  document.querySelectorAll(".nav-dropdown.open").forEach((item) => item.classList.remove("open"));
+});
 
 function lowestPrice(hotelId, rooms) {
   const prices = rooms.filter((room) => room.hotel_id === hotelId).map((room) => room.price_per_night);
@@ -285,9 +419,13 @@ async function renderHotels(query) {
   try {
     const path = q ? `/api/v1/hotels?q=${encodeURIComponent(q)}` : "/api/v1/hotels";
     const [hotels, rooms] = await Promise.all([api(path), api("/api/v1/rooms")]);
+    const homesOnly = query.get("homes_only") === "1";
     document.getElementById("results-meta").textContent =
-      `${hotels.length} properties found · ${formatLongDate(checkIn)} – ${formatLongDate(checkOut)}`;
-    renderHotelList("#hotel-results", hotels, rooms);
+      `${hotels.length} properties found · ${formatLongDate(checkIn)} – ${formatLongDate(checkOut)}${homesOnly ? " · entire homes filter on" : ""}`;
+    const visible = homesOnly
+      ? hotels.filter((hotel) => /home|apt|apartment|suites|stay|residency/i.test(`${hotel.name} ${hotel.city}`))
+      : hotels;
+    renderHotelList("#hotel-results", visible, rooms);
   } catch (error) {
     document.getElementById("hotel-results").innerHTML = `<div class="error">${error.message}</div>`;
   }
@@ -489,7 +627,8 @@ async function renderBookings() {
             <span class="badge ${booking.status === "CANCELLED" ? "cancelled" : ""}">${booking.status}</span></p>
             <p>${booking.customer_name} · ${booking.customer_email}</p>
             <p class="muted">${booking.check_in} to ${booking.check_out}</p>
-            <p class="muted">Hotel ${booking.hotel_id} · Room ${booking.room_id}</p>
+            <p class="muted">Hotel ${booking.hotel_id} · Room ${booking.room_id} · ${money(booking.amount)}</p>
+            <div class="notice-list" data-notes="${booking.booking_id}"></div>
             ${
                 booking.status === "PENDING_PAYMENT"
                   ? `<a class="btn" href="#/pay/${booking.booking_id}">Pay now</a>`
@@ -503,6 +642,21 @@ async function renderBookings() {
         }
       </section>
     `;
+    app.querySelectorAll("[data-notes]").forEach(async (target) => {
+      try {
+        const notes = await api(`/api/v1/notifications?booking_id=${target.dataset.notes}`);
+        target.innerHTML = notes.length
+          ? notes
+              .map(
+                (note) =>
+                  `<p class="muted">${note.event} · ${note.channel} to ${note.recipient}<br>${note.subject}</p>`
+              )
+              .join("")
+          : `<p class="muted">No alerts yet for this booking.</p>`;
+      } catch {
+        target.innerHTML = "";
+      }
+    });
     app.querySelectorAll("[data-cancel]").forEach((button) => {
       button.addEventListener("click", async () => {
         button.disabled = true;
@@ -521,6 +675,42 @@ async function renderBookings() {
   }
 }
 
+function renderFeaturePage(title, body) {
+  showHome(false);
+  app.innerHTML = `<section class="feature-page"><h2>${title}</h2>${body}</section>`;
+}
+
+async function renderNotifications() {
+  showHome(false);
+  app.innerHTML = `<section class="feature-page"><h2>Booking notifications</h2><p class="muted">Loading alerts from Notification Service…</p></section>`;
+  try {
+    const notes = await api("/api/v1/notifications");
+    app.innerHTML = `
+      <section class="feature-page">
+        <h2>Booking notifications</h2>
+        <p class="muted">Email alerts stored by Notification Service after each booking change.</p>
+        ${
+          notes.length
+            ? `<div class="notice-list">${notes
+                .map(
+                  (note) => `
+              <article class="notice-card">
+                <strong>${note.event}</strong>
+                <p>${note.subject}</p>
+                <p class="muted">${note.channel} · ${note.recipient} · booking #${note.booking_id}</p>
+                <p>${note.message}</p>
+              </article>`
+                )
+                .join("")}</div>`
+            : `<div class="empty">No notifications yet. Create a booking to send the first alert.</div>`
+        }
+      </section>
+    `;
+  } catch (error) {
+    app.innerHTML = `<section class="feature-page"><div class="error">${error.message}</div></section>`;
+  }
+}
+
 function render() {
   const current = parseRoute();
   if (current.name === "hotels") return renderHotels(current.query);
@@ -528,8 +718,69 @@ function render() {
   if (current.name === "book") return renderBook(current.roomId, current.hotelId);
   if (current.name === "pay") return renderPay(current.bookingId);
   if (current.name === "bookings") return renderBookings();
+  if (current.name === "notifications") return renderNotifications();
+  if (current.name === "flights") {
+    return renderFeaturePage(
+      "Flights",
+      "<p>Search one-way or return flights, then add a hotel with Flight + Hotel to bundle and save.</p><p class='muted'>This demo keeps live inventory in Hotel and Room services. Use SEARCH on the homepage for stays.</p>"
+    );
+  }
+  if (current.name === "homes") {
+    return renderFeaturePage(
+      "Homes &amp; apartments",
+      "<p>Entire homes and apartments are included in the same Hotel Service catalog. Tick <strong>Show me only entire homes and apartments</strong> on search, then SEARCH.</p>"
+    );
+  }
+  if (current.name === "activities") {
+    return renderFeaturePage(
+      "Activities",
+      "<p>City walks, fort tickets and sunset cruises can be added after you book a stay. Start with a hotel search to lock dates first.</p>"
+    );
+  }
+  if (current.name === "transfers") {
+    return renderFeaturePage(
+      "Airport transfer",
+      "<p>Private cars and shared shuttles from the airport to your hotel. Book a stay first so the driver has your hotel address.</p>"
+    );
+  }
+  if (current.name === "transport") {
+    const mode = current.query.get("mode") || "all";
+    return renderFeaturePage(
+      "Transport",
+      `<p>Browse ${mode} options: flights, buses, trains, ferries, airport transfers and car rentals.</p><p class='muted'>Hotel stays remain the live booking path in this demo.</p>`
+    );
+  }
+  if (current.name === "coupons") {
+    return renderFeaturePage(
+      "Coupons &amp; Deals",
+      `<div class="coupon-grid">
+        <article class="coupon-card"><strong>MEGA60</strong><p>Up to 60% off selected city hotels this week.</p></article>
+        <article class="coupon-card"><strong>BUNDLE12</strong><p>Extra 12% off when you add a flight to your hotel.</p></article>
+        <article class="coupon-card"><strong>DAYUSE</strong><p>Day Use stays from 9:00 to 17:00 in business districts.</p></article>
+      </div>`
+    );
+  }
+  if (current.name === "esim") {
+    return renderFeaturePage(
+      "eSIM",
+      "<p>Buy a local data eSIM before you fly. Pair it with a hotel booking so you have maps ready at landing.</p>"
+    );
+  }
+  if (current.name === "guides") {
+    return renderFeaturePage(
+      "Travel Guides",
+      "<p>Neighborhood tips for Bangalore, Mumbai, Goa, Jaipur, Mysore and Udaipur. Open a city from Top destinations to see live hotels.</p>"
+    );
+  }
+  if (current.name === "bundle") {
+    return renderFeaturePage(
+      "Flight + Hotel",
+      "<p>Bundle and save: add a flight to your hotel search. Dates stay in sync with the occupancy picker on the homepage.</p><p><a class='btn' href='#/'>Search hotels</a></p>"
+    );
+  }
   return renderHome();
 }
 
+bindHeader();
 window.addEventListener("hashchange", render);
 render();
