@@ -122,12 +122,15 @@ Takes payment for a booking. Supported methods: **UPI**, **Credit/Debit card**, 
 
 ### Notification Service
 
-Stores booking alerts in memory (no real SMTP). Booking Service posts an email-style record when a stay is created, confirmed, cancelled, or when payment fails.
+Stores booking alerts and **sends SMTP email** to the guest address on the booking. Local Docker Compose uses Mailpit as the mailbox.
 
 - Base URL on the host: `http://localhost:8005`
-- `POST /api/v1/notifications` creates an alert
+- Mailpit inbox UI: `http://localhost:8025`
+- `POST /api/v1/notifications` sends the email and stores the result (`SENT` or `FAILED`)
 - `GET /api/v1/notifications?booking_id=` lists alerts for a booking
 - Events: `BOOKING_CREATED`, `BOOKING_CONFIRMED`, `BOOKING_CANCELLED`, `PAYMENT_FAILED`
+
+The earlier version only stored a fake `SENT` record and never opened SMTP, so nothing arrived in an inbox. After rebuild, book a stay and open Mailpit. To reach Gmail/Outlook, set `SMTP_HOST`, `SMTP_PORT`, `SMTP_STARTTLS`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM` on `notification-service` in `docker-compose.yml`.
 
 ### Website (Aryanstays)
 
@@ -178,7 +181,7 @@ If Room Service is down, Booking Service returns **503** instead of crashing. If
 ## 5. Docker architecture
 
 - Each service image is `python:3.12-slim`, runs as a non-root user, and starts Uvicorn on port **8000**.
-- Compose maps host ports: Hotel `8000`, Room `8002`, Booking `8003`, Payment `8004`, Notification `8005`, Website `8080`.
+- Compose maps host ports: Hotel `8000`, Room `8002`, Booking `8003`, Payment `8004`, Notification `8005`, Mailpit `8025`, Website `8080`.
 - All containers join the `hotel-network` bridge network.
 - Health checks call each API container's `GET /health` on `127.0.0.1:8000`.
 - Restart policy: `unless-stopped`.
@@ -216,7 +219,7 @@ Each backend service contains `app/` (FastAPI), `tests/`, `requirements.txt`, `D
 ## 7. Prerequisites
 
 - Docker Engine with Docker Compose v2
-- Ports 8000, 8002, 8003, 8004, 8005, and 8080 free on the host
+- Ports 8000, 8002, 8003, 8004, 8005, 8025, and 8080 free on the host
 - Optional for unit tests only: Python 3.12
 
 ---
@@ -490,4 +493,5 @@ HTTP errors used by the APIs:
 | booking-service | 8000 | 8003 |
 | payment-service | 8000 | 8004 |
 | notification-service | 8000 | 8005 |
+| mailpit (email inbox) | 8025 / 1025 | 8025 / 1025 |
 | web | 8080 | 8080 |

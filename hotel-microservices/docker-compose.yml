@@ -110,6 +110,13 @@ services:
     restart: unless-stopped
     ports:
       - "8005:8000"
+    environment:
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_FROM: Aryanstays <noreply@aryanstays.local>
+      SMTP_STARTTLS: "false"
+    depends_on:
+      - mailpit
     networks:
       - hotel-network
     healthcheck:
@@ -124,6 +131,16 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+
+  mailpit:
+    image: axllent/mailpit:v1.21.4
+    container_name: hotel-mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    networks:
+      - hotel-network
 
   web:
     build:

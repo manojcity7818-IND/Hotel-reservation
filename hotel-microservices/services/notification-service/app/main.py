@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from starlette.requests import Request
 
 from app import data
+from app.emailer import EmailDeliveryError, send_email
 from app.models import Notification
 from app.schemas import NotificationCreate, NotificationResponse
 
@@ -45,6 +46,14 @@ def ready() -> dict[str, str]:
 
 @app.post("/api/v1/notifications", response_model=NotificationResponse, status_code=201)
 def create_notification(payload: NotificationCreate) -> Notification:
+    status = "SENT"
+    error = None
+    if payload.channel.value == "EMAIL":
+        try:
+            send_email(payload.recipient, payload.subject, payload.message)
+        except EmailDeliveryError as exc:
+            status = "FAILED"
+            error = str(exc)
     notification = Notification(
         notification_id=data.next_id(),
         booking_id=payload.booking_id,
@@ -53,7 +62,8 @@ def create_notification(payload: NotificationCreate) -> Notification:
         recipient=payload.recipient,
         subject=payload.subject,
         message=payload.message,
-        status="SENT",
+        status=status,
+        error=error,
     )
     data.notifications[notification.notification_id] = notification
     return notification

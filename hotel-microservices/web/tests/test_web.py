@@ -34,6 +34,7 @@ def test_app_calls_all_microservices() -> None:
     assert "Top destinations in India" in js or "dest-card" in js
     assert "Mysore" in js
     assert "Udaipur" in js
+    assert "localhost:8025" in js
 
 
 def test_styles_exist() -> None:
