@@ -128,3 +128,64 @@ def test_create_room_invalid_price() -> None:
     }
     response = client.post("/api/v1/rooms", json=payload)
     assert response.status_code == 400
+
+
+def test_two_rooms_per_hotel_across_catalog() -> None:
+    rooms = client.get("/api/v1/rooms").json()
+    assert len(rooms) == 540
+    hotel_ids = {room["hotel_id"] for room in rooms}
+    assert hotel_ids == set(range(1, 271))
+
+
+def test_rooms_for_unknown_hotel_are_empty() -> None:
+    response = client.get("/api/v1/rooms/hotel/9999")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_update_room_not_found() -> None:
+    payload = {
+        "hotel_id": 1,
+        "room_number": "999",
+        "room_type": "Deluxe",
+        "price_per_night": 4000,
+        "available": True,
+    }
+    response = client.put("/api/v1/rooms/999", json=payload)
+    assert response.status_code == 404
+
+
+def test_delete_room_not_found() -> None:
+    response = client.delete("/api/v1/rooms/999")
+    assert response.status_code == 404
+
+
+def test_availability_not_found() -> None:
+    response = client.get("/api/v1/rooms/999/availability")
+    assert response.status_code == 404
+
+
+def test_reserve_not_found() -> None:
+    response = client.post("/api/v1/rooms/999/reserve")
+    assert response.status_code == 404
+
+
+def test_invalid_create_room() -> None:
+    response = client.post("/api/v1/rooms", json={"hotel_id": 1})
+    assert response.status_code == 400
+
+
+def test_unhandled_error_returns_500() -> None:
+    from unittest.mock import patch
+
+    with patch("app.main.data.next_id", side_effect=RuntimeError("boom")):
+        response = client.post(
+            "/api/v1/rooms",
+            json={
+                "hotel_id": 1,
+                "room_number": "199",
+                "room_type": "Suite",
+                "price_per_night": 9000,
+            },
+        )
+    assert response.status_code == 500

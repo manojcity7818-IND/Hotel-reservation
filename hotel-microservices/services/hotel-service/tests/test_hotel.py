@@ -116,3 +116,64 @@ def test_create_hotel_invalid_rating() -> None:
     payload = {"name": "Too High", "city": "Pune", "rating": 9.5}
     response = client.post("/api/v1/hotels", json=payload)
     assert response.status_code == 400
+
+
+def test_filter_hotels_by_city_param() -> None:
+    response = client.get("/api/v1/hotels", params={"city": "Udaipur"})
+    hotels = response.json()
+    assert len(hotels) == 10
+    assert all(hotel["city"] == "Udaipur" for hotel in hotels)
+
+
+def test_filter_hotels_by_name() -> None:
+    response = client.get("/api/v1/hotels", params={"q": "Grand Hyderabad"})
+    hotels = response.json()
+    assert any(hotel["name"] == "Grand Hyderabad Hotel" for hotel in hotels)
+
+
+def test_filter_hotels_no_match() -> None:
+    response = client.get("/api/v1/hotels", params={"q": "Atlantis"})
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_catalog_has_twelve_cities_and_270_hotels() -> None:
+    hotels = client.get("/api/v1/hotels").json()
+    cities = {hotel["city"] for hotel in hotels}
+    assert len(hotels) == 270
+    assert cities == {
+        "Hyderabad",
+        "Bangalore",
+        "Mumbai",
+        "New Delhi",
+        "Chennai",
+        "Goa",
+        "Jaipur",
+        "Pune",
+        "Kolkata",
+        "Kochi",
+        "Mysore",
+        "Udaipur",
+    }
+
+
+def test_mysore_and_kochi_counts() -> None:
+    hotels = client.get("/api/v1/hotels").json()
+    by_city = {}
+    for hotel in hotels:
+        by_city.setdefault(hotel["city"], 0)
+        by_city[hotel["city"]] += 1
+    assert by_city["Mysore"] == 10
+    assert by_city["Kochi"] == 25
+
+
+def test_unhandled_error_returns_500() -> None:
+    from unittest.mock import patch
+
+    with patch("app.main.data.next_id", side_effect=RuntimeError("boom")):
+        response = client.post(
+            "/api/v1/hotels",
+            json={"name": "Crash Hotel", "city": "Goa", "rating": 4.0},
+        )
+    assert response.status_code == 500
+    assert response.json()["detail"] == "Unexpected internal error."

@@ -15,6 +15,14 @@ class _FakeResponse:
     def json(self) -> dict:
         return self._payload
 
+    @property
+    def text(self) -> str:
+        return str(self._payload)
+
+    @property
+    def text(self) -> str:
+        return str(self._payload)
+
 
 class _FakeClient:
     def __init__(self, response: _FakeResponse) -> None:
@@ -79,3 +87,24 @@ def test_notify_booking_payload() -> None:
         )
     assert fake.posted[1]["recipient"] == "aryan@example.com"
     assert fake.posted[1]["event"] == "BOOKING_CONFIRMED"
+
+
+def test_send_notification_server_error() -> None:
+    fake = _FakeClient(_FakeResponse(500))
+    with patch.object(notification_client, "_client", return_value=fake):
+        assert notification_client.send_notification({"booking_id": 1}) is None
+
+
+def test_send_notification_rejected() -> None:
+    fake = _FakeClient(_FakeResponse(400, {"detail": "Invalid request."}))
+    with patch.object(notification_client, "_client", return_value=fake):
+        assert notification_client.send_notification({"booking_id": 1}) is None
+
+
+def test_send_notification_failed_delivery_still_returns_body() -> None:
+    fake = _FakeClient(
+        _FakeResponse(201, {"notification_id": 2, "status": "FAILED", "error": "SMTP down"})
+    )
+    with patch.object(notification_client, "_client", return_value=fake):
+        body = notification_client.send_notification({"booking_id": 1})
+    assert body["status"] == "FAILED"
