@@ -17,6 +17,22 @@ const TOP_CITIES = [
   { name: "Udaipur", className: "city-udaipur" },
 ];
 
+const CITY_MAP = {
+  "New Delhi": { x: 48, y: 18 },
+  Jaipur: { x: 40, y: 26 },
+  Udaipur: { x: 36, y: 34 },
+  Ahmedabad: { x: 28, y: 38 },
+  Mumbai: { x: 30, y: 52 },
+  Pune: { x: 34, y: 56 },
+  Goa: { x: 32, y: 68 },
+  Bangalore: { x: 44, y: 78 },
+  Mysore: { x: 40, y: 82 },
+  Chennai: { x: 56, y: 80 },
+  Hyderabad: { x: 48, y: 62 },
+  Kochi: { x: 42, y: 90 },
+  Kolkata: { x: 72, y: 42 },
+};
+
 function cityClass(city) {
   return (
     {
@@ -51,6 +67,13 @@ function formatLongDate(value) {
   });
 }
 
+function formatShortDate(value) {
+  return new Date(`${value}T00:00:00`).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+  });
+}
+
 function nightsBetween(checkIn, checkOut) {
   const start = new Date(`${checkIn}T00:00:00`);
   const end = new Date(`${checkOut}T00:00:00`);
@@ -77,6 +100,64 @@ function showToast(message) {
 function showHome(isHome) {
   homePage.hidden = !isHome;
   app.hidden = isHome;
+}
+
+function ratingLabel(rating) {
+  if (rating >= 4.7) return "Excellent";
+  if (rating >= 4.3) return "Very good";
+  if (rating >= 4) return "Good";
+  return "Pleasant";
+}
+
+function hotelAmenities(hotel) {
+  const id = hotel.id || 0;
+  const name = hotel.name || "";
+  return {
+    wifi: true,
+    breakfast: id % 2 === 0 || /suites|heritage|palace|grand|resort/i.test(name),
+    pool: id % 3 !== 0 || /beach|lake|palace|grand|resort/i.test(name),
+    parking: id % 4 !== 1,
+    gym: id % 5 === 0 || /business|tech|corporate/i.test(name),
+    freeCancel: id % 7 !== 0,
+  };
+}
+
+function amenityLines(hotel) {
+  const a = hotelAmenities(hotel);
+  const lines = [];
+  if (a.freeCancel) lines.push("Free cancellation");
+  if (a.breakfast) lines.push("Breakfast included");
+  if (a.pool) lines.push("Swimming pool");
+  if (a.parking) lines.push("Parking");
+  if (a.wifi) lines.push("Wi-Fi");
+  if (a.gym) lines.push("Gym");
+  return lines;
+}
+
+function favoriteIds() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem("aryanstaysFavorites") || "[]"));
+  } catch {
+    return new Set();
+  }
+}
+
+function toggleFavorite(hotelId) {
+  const ids = favoriteIds();
+  if (ids.has(hotelId)) ids.delete(hotelId);
+  else ids.add(hotelId);
+  localStorage.setItem("aryanstaysFavorites", JSON.stringify([...ids]));
+  return ids.has(hotelId);
+}
+
+function searchDates() {
+  const saved = new URLSearchParams(sessionStorage.getItem("aryanstaysSearch") || "");
+  return {
+    checkIn: saved.get("check_in") || isoDate(10),
+    checkOut: saved.get("check_out") || isoDate(12),
+    guests: saved.get("guests") || "2 Adults · 1 Room",
+    q: saved.get("q") || "",
+  };
 }
 
 async function api(path, options = {}) {
@@ -109,8 +190,12 @@ function parseRoute() {
   if (parts[0] === "book" && parts[1]) {
     return { name: "book", roomId: Number(parts[1]), hotelId: Number(parts[2] || 0), query };
   }
+  if (parts[0] === "review" && parts[1]) {
+    return { name: "review", roomId: Number(parts[1]), hotelId: Number(parts[2] || 0), query };
+  }
   if (parts[0] === "pay" && parts[1]) return { name: "pay", bookingId: Number(parts[1]), query };
-  if (parts[0] === "bookings") return { name: "bookings", query };
+  if (parts[0] === "confirmed" && parts[1]) return { name: "confirmed", bookingId: Number(parts[1]), query };
+  if (parts[0] === "bookings" || parts[0] === "trips") return { name: "bookings", query };
   if (
     [
       "flights",
@@ -130,13 +215,13 @@ function parseRoute() {
   return { name: "home", query };
 }
 
-function occupancyMarkup(guests = "2 adults, 1 room") {
+function occupancyMarkup(guests = "2 Adults · 1 Room") {
   return `
     <div class="occupancy">
       <button type="button" class="field occupancy-trigger" aria-expanded="false">
         <span class="field-icon">👤</span>
         <span>
-          <span class="field-label">Guests</span>
+          <span class="field-label">Guests &amp; rooms</span>
           <strong class="occupancy-label">${guests}</strong>
         </span>
       </button>
@@ -151,11 +236,29 @@ function occupancyMarkup(guests = "2 adults, 1 room") {
   `;
 }
 
+function quickFiltersMarkup(active = "") {
+  const chips = [
+    ["popular", "🔥 Popular"],
+    ["free_cancel", "Free cancellation"],
+    ["breakfast", "Breakfast included"],
+    ["4star", "4★ &amp; above"],
+    ["pool", "Pool"],
+    ["parking", "Parking"],
+  ];
+  return `<div class="quick-filters">${chips
+    .map(
+      ([key, label]) =>
+        `<button type="button" class="chip${active === key ? " active" : ""}" data-filter="${key}">${label}</button>`
+    )
+    .join("")}</div>`;
+}
+
 function searchPanel(defaults = {}, formId = "search-form") {
   const checkIn = defaults.check_in || isoDate(10);
   const checkOut = defaults.check_out || isoDate(12);
   const destination = defaults.q || defaults.city || "Bangalore";
-  const guests = defaults.guests || "2 adults, 1 room";
+  const guests = defaults.guests || "2 Adults · 1 Room";
+  const filter = defaults.filter || "";
   return `
     <form class="search-panel" id="${formId}">
       <div class="search-tabs">
@@ -170,8 +273,11 @@ function searchPanel(defaults = {}, formId = "search-form") {
         <button type="button" class="stay-pill" data-stay="dayuse">Day Use</button>
       </div>
       <label class="field field-wide">
-        <span class="field-icon">⌕</span>
-        <input name="q" value="${destination}" placeholder="Enter a destination or property" />
+        <span class="field-icon">🔍</span>
+        <span>
+          <span class="field-label">Where are you going?</span>
+          <input name="q" value="${destination}" placeholder="Bangalore, Goa, Hyderabad..." />
+        </span>
       </label>
       <div class="field-row">
         <label class="field"><span class="field-label">Check-in</span>
@@ -183,19 +289,21 @@ function searchPanel(defaults = {}, formId = "search-form") {
         ${occupancyMarkup(guests)}
       </div>
       <div class="search-extra">
-        <label class="check"><input type="checkbox" name="homes_only" /> Show me only entire homes and apartments</label>
+        <label class="check"><input type="checkbox" name="homes_only" ${defaults.homes_only === "1" ? "checked" : ""} /> Show me only entire homes and apartments</label>
         <button type="button" class="text-link add-flight">+ Add a flight</button>
       </div>
-      <button class="search-cta" type="submit">SEARCH</button>
+      <button class="search-cta" type="submit">SEARCH HOTELS</button>
+      ${quickFiltersMarkup(filter)}
+      <input type="hidden" name="filter" value="${filter}" />
     </form>
   `;
 }
 
 function formatGuests(counts) {
-  const adults = `${counts.adults} adult${counts.adults === 1 ? "" : "s"}`;
-  const children = counts.children ? `, ${counts.children} child${counts.children === 1 ? "" : "ren"}` : "";
-  const rooms = `${counts.rooms} room${counts.rooms === 1 ? "" : "s"}`;
-  return `${adults}${children}, ${rooms}`;
+  const adults = `${counts.adults} Adult${counts.adults === 1 ? "" : "s"}`;
+  const children = counts.children ? ` · ${counts.children} Child${counts.children === 1 ? "" : "ren"}` : "";
+  const rooms = `${counts.rooms} Room${counts.rooms === 1 ? "" : "s"}`;
+  return `${adults}${children} · ${rooms}`;
 }
 
 function bindOccupancy(form) {
@@ -232,10 +340,23 @@ function bindOccupancy(form) {
   });
 }
 
+function bindQuickFilters(form) {
+  const hidden = form.querySelector("input[name=filter]");
+  form.querySelectorAll("[data-filter]").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const already = chip.classList.contains("active");
+      form.querySelectorAll("[data-filter]").forEach((item) => item.classList.remove("active"));
+      if (!already) chip.classList.add("active");
+      if (hidden) hidden.value = already ? "" : chip.dataset.filter;
+    });
+  });
+}
+
 function bindSearch(form) {
   if (!form || form.dataset.bound === "true") return;
   form.dataset.bound = "true";
   bindOccupancy(form);
+  bindQuickFilters(form);
   form.querySelectorAll("[data-stay]").forEach((pill) => {
     pill.addEventListener("click", () => {
       form.querySelectorAll("[data-stay]").forEach((item) => item.classList.remove("active"));
@@ -271,12 +392,22 @@ function bindSearch(form) {
       q: String(data.get("q") || "").trim(),
       check_in: String(data.get("check_in") || ""),
       check_out: String(data.get("check_out") || ""),
-      guests: String(data.get("guests") || "2 adults, 1 room"),
+      guests: String(data.get("guests") || "2 Adults · 1 Room"),
     });
+    const filter = String(data.get("filter") || form.querySelector(".chip.active")?.dataset.filter || "");
+    if (filter) params.set("filter", filter);
     if (homesOnly) params.set("homes_only", "1");
     sessionStorage.setItem("aryanstaysSearch", params.toString());
     window.location.hash = `#/hotels?${params.toString()}`;
   });
+}
+
+function syncAuthUi() {
+  const signedIn = localStorage.getItem("aryanstaysUser") === "1";
+  const signIn = document.getElementById("sign-in-btn");
+  const create = document.getElementById("create-account-btn");
+  if (signIn) signIn.textContent = signedIn ? "Signed in" : "Sign in";
+  if (create) create.hidden = signedIn;
 }
 
 function bindHeader() {
@@ -307,10 +438,48 @@ function bindHeader() {
       showToast(`Prices shown in ${button.textContent}`);
     });
   });
+  const signIn = document.getElementById("sign-in-btn");
+  const create = document.getElementById("create-account-btn");
+  if (signIn && signIn.dataset.bound !== "true") {
+    signIn.dataset.bound = "true";
+    signIn.addEventListener("click", () => {
+      const next = localStorage.getItem("aryanstaysUser") !== "1";
+      localStorage.setItem("aryanstaysUser", next ? "1" : "0");
+      syncAuthUi();
+      showToast(next ? "Signed in. Open My Trips to see Booking Service stays." : "Signed out.");
+      if (next) window.location.hash = "#/trips";
+    });
+  }
+  if (create && create.dataset.bound !== "true") {
+    create.dataset.bound = "true";
+    create.addEventListener("click", () => {
+      localStorage.setItem("aryanstaysUser", "1");
+      syncAuthUi();
+      showToast("Account created for this demo. My Trips is now in the navbar.");
+      window.location.hash = "#/trips";
+    });
+  }
+  const fab = document.getElementById("help-fab");
+  const panel = document.getElementById("help-panel");
+  if (fab && panel && fab.dataset.bound !== "true") {
+    fab.dataset.bound = "true";
+    fab.addEventListener("click", () => {
+      panel.hidden = !panel.hidden;
+      fab.setAttribute("aria-expanded", String(!panel.hidden));
+    });
+  }
+  syncAuthUi();
 }
 
-document.addEventListener("click", () => {
+document.addEventListener("click", (event) => {
   document.querySelectorAll(".nav-dropdown.open").forEach((item) => item.classList.remove("open"));
+  const fav = event.target.closest("[data-fav]");
+  if (fav) {
+    event.preventDefault();
+    const on = toggleFavorite(Number(fav.dataset.fav));
+    fav.classList.toggle("is-fav", on);
+    fav.textContent = on ? "♥" : "♡";
+  }
 });
 
 function lowestPrice(hotelId, rooms) {
@@ -318,11 +487,71 @@ function lowestPrice(hotelId, rooms) {
   return prices.length ? Math.min(...prices) : null;
 }
 
+function hotelPin(hotel) {
+  const base = CITY_MAP[hotel.city] || { x: 50, y: 50 };
+  const jitterX = ((hotel.id * 17) % 11) - 5;
+  const jitterY = ((hotel.id * 13) % 11) - 5;
+  return { x: Math.min(92, Math.max(8, base.x + jitterX)), y: Math.min(92, Math.max(8, base.y + jitterY)) };
+}
+
+function filterHotels(hotels, filter) {
+  if (!filter) return hotels;
+  return hotels.filter((hotel) => {
+    const a = hotelAmenities(hotel);
+    if (filter === "popular") return hotel.rating >= 4.6;
+    if (filter === "free_cancel") return a.freeCancel;
+    if (filter === "breakfast") return a.breakfast;
+    if (filter === "4star") return hotel.rating >= 4;
+    if (filter === "pool") return a.pool;
+    if (filter === "parking") return a.parking;
+    return true;
+  });
+}
+
+function hotelCardMarkup(hotel, rooms, options = {}) {
+  const price = lowestPrice(hotel.id, rooms);
+  const dates = searchDates();
+  const nights = nightsBetween(dates.checkIn, dates.checkOut);
+  const total = price ? price * nights : null;
+  const fav = favoriteIds().has(hotel.id);
+  const compact = options.compact;
+  const ticks = amenityLines(hotel)
+    .slice(0, compact ? 0 : 3)
+    .map((line) => `<li>✓ ${line}</li>`)
+    .join("");
+  return `
+    <article class="hotel-row ${compact ? "hotel-card-compact" : ""}" data-hotel-card="${hotel.id}" id="hotel-card-${hotel.id}">
+      <div class="hotel-photo ${cityClass(hotel.city)}">
+        <span>${hotel.city}</span>
+        <button type="button" class="fav-btn ${fav ? "is-fav" : ""}" data-fav="${hotel.id}" aria-label="Save hotel">${fav ? "♥" : "♡"}</button>
+      </div>
+      <div class="hotel-info">
+        <p><span class="rating-pill">⭐ ${hotel.rating.toFixed(1)}</span> ${ratingLabel(hotel.rating)}</p>
+        <h3>${hotel.name}</h3>
+        <p class="muted">📍 ${hotel.city}</p>
+        ${ticks ? `<ul class="amenity-ticks">${ticks}</ul>` : ""}
+      </div>
+      <div class="hotel-price">
+        <strong>${price ? money(price) : "—"}</strong>
+        <span class="muted">/ night</span>
+        ${total ? `<span class="muted">${money(total)} total</span>` : ""}
+        <a class="btn" href="#/hotels/${hotel.id}">View rooms →</a>
+      </div>
+    </article>
+  `;
+}
+
 function renderDestinations(hotels) {
   const counts = hotels.reduce((acc, hotel) => {
     acc[hotel.city] = (acc[hotel.city] || 0) + 1;
     return acc;
   }, {});
+  const chips = document.getElementById("dest-chips");
+  if (chips) {
+    chips.innerHTML = TOP_CITIES.map(
+      (city) => `<a class="chip dest-chip" href="#/hotels?q=${encodeURIComponent(city.name)}">${city.name}</a>`
+    ).join("");
+  }
   const target = document.getElementById("destinations");
   if (!target) return;
   target.innerHTML = TOP_CITIES.map((city) => {
@@ -337,34 +566,87 @@ function renderDestinations(hotels) {
   }).join("");
 }
 
-function renderHotelList(selector, hotels, rooms) {
+function renderHotelList(selector, hotels, rooms, options = {}) {
   const target = document.querySelector(selector);
   if (!target) return;
   if (!hotels.length) {
     target.innerHTML = `<div class="empty">No hotels match that destination. Try Bangalore, Mumbai, Hyderabad, Mysore or Udaipur.</div>`;
     return;
   }
-  target.innerHTML = hotels
+  target.innerHTML = hotels.map((hotel) => hotelCardMarkup(hotel, rooms, options)).join("");
+}
+
+function renderRecommended(hotels, rooms) {
+  const target = document.getElementById("recommended-stays");
+  if (!target) return;
+  const preferredCities = ["Hyderabad", "Bangalore", "Goa", "Mumbai"];
+  const picks = [];
+  preferredCities.forEach((city) => {
+    const match = hotels.find((hotel) => hotel.city === city && !picks.includes(hotel));
+    if (match) picks.push(match);
+  });
+  hotels
+    .slice()
+    .sort((a, b) => b.rating - a.rating)
+    .forEach((hotel) => {
+      if (picks.length < 4 && !picks.includes(hotel)) picks.push(hotel);
+    });
+  target.innerHTML = picks
     .map((hotel) => {
       const price = lowestPrice(hotel.id, rooms);
+      const fav = favoriteIds().has(hotel.id);
       return `
-        <article class="hotel-row">
-          <div class="hotel-photo ${cityClass(hotel.city)}">${hotel.city}</div>
-          <div class="hotel-info">
-            <h3>${hotel.name}</h3>
-            <p><span class="rating-pill">${hotel.rating.toFixed(1)}</span> Excellent · ${hotel.city}</p>
-            <p class="muted">Free cancellation on selected rooms · Breakfast available · Pay at hotel</p>
+        <article class="recommend-card">
+          <div class="hotel-photo ${cityClass(hotel.city)}">
+            <span>⭐ ${hotel.rating.toFixed(1)}</span>
+            <button type="button" class="fav-btn ${fav ? "is-fav" : ""}" data-fav="${hotel.id}" aria-label="Save hotel">${fav ? "♥" : "♡"}</button>
           </div>
-          <div class="hotel-price">
-            <span class="muted">From</span>
-            <strong>${price ? money(price) : "—"}</strong>
-            <span class="muted">per night</span>
-            <a class="btn" href="#/hotels/${hotel.id}">Select room</a>
+          <div class="recommend-body">
+            <h3>${hotel.name}</h3>
+            <p class="muted">📍 ${hotel.city}</p>
+            <p><strong>${price ? money(price) : "—"}</strong> <span class="muted">/night</span></p>
+            <a class="btn" href="#/hotels/${hotel.id}">View rooms</a>
           </div>
         </article>
       `;
     })
     .join("");
+}
+
+function renderMap(hotels) {
+  return `
+    <aside class="results-map" id="results-map">
+      <h3>MAP</h3>
+      <p class="muted">Click a marker to highlight the corresponding hotel.</p>
+      <div class="india-map" role="img" aria-label="Hotel map">
+        ${hotels
+          .slice(0, 40)
+          .map((hotel) => {
+            const pin = hotelPin(hotel);
+            return `<button type="button" class="map-pin" style="left:${pin.x}%;top:${pin.y}%" data-pin="${hotel.id}" title="${hotel.name}">📍</button>`;
+          })
+          .join("")}
+      </div>
+    </aside>
+  `;
+}
+
+function bindMap(root, hotels) {
+  root.querySelectorAll("[data-pin]").forEach((pin) => {
+    pin.addEventListener("click", () => {
+      const id = pin.dataset.pin;
+      root.querySelectorAll("[data-pin]").forEach((item) => item.classList.remove("is-active"));
+      root.querySelectorAll("[data-hotel-card]").forEach((item) => item.classList.remove("is-active"));
+      pin.classList.add("is-active");
+      const card = root.querySelector(`[data-hotel-card="${id}"]`);
+      if (card) {
+        card.classList.add("is-active");
+        card.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      const hotel = hotels.find((item) => String(item.id) === String(id));
+      if (hotel) showToast(`${hotel.name} · ${hotel.city}`);
+    });
+  });
 }
 
 async function renderHome() {
@@ -378,7 +660,8 @@ async function renderHome() {
   try {
     const [hotels, rooms] = await Promise.all([api("/api/v1/hotels"), api("/api/v1/rooms")]);
     renderDestinations(hotels);
-    renderHotelList("#popular-hotels", hotels.slice(0, 8), rooms);
+    renderRecommended(hotels, rooms);
+    renderHotelList("#popular-hotels", hotels.slice(0, 6), rooms);
   } catch (error) {
     const dest = document.getElementById("destinations");
     if (dest) dest.innerHTML = `<div class="error">${error.message}</div>`;
@@ -390,6 +673,7 @@ async function renderHotels(query) {
   const q = query.get("q") || query.get("city") || "";
   const checkIn = query.get("check_in") || isoDate(10);
   const checkOut = query.get("check_out") || isoDate(12);
+  const filter = query.get("filter") || "";
   app.innerHTML = `
     <section class="promo-hero">
       <div class="promo-copy">
@@ -397,21 +681,16 @@ async function renderHotels(query) {
         <h1>MEGA SALE</h1>
         <p class="promo-off">Up to 60% Off!</p>
       </div>
-      ${searchPanel({ q, check_in: checkIn, check_out: checkOut, guests: query.get("guests") })}
+      ${searchPanel({ q, check_in: checkIn, check_out: checkOut, guests: query.get("guests"), filter, homes_only: query.get("homes_only") })}
     </section>
     <div class="results-layout">
-      <aside class="filters">
-        <h3>Filter by</h3>
-        <label><input type="checkbox" checked /> Hotels</label>
-        <label><input type="checkbox" checked /> Homes &amp; apartments</label>
-        <label><input type="checkbox" /> Free breakfast</label>
-        <label><input type="checkbox" /> Free cancellation</label>
-        <p class="muted">Results are loaded from Hotel Service and priced from Room Service.</p>
-      </aside>
       <section>
         <h2>${q ? `Hotels in ${q}` : "All hotels"}</h2>
         <p class="muted" id="results-meta">Searching Aryanstays…</p>
-        <div class="hotel-list" id="hotel-results"></div>
+        <div class="results-split">
+          <div class="hotel-list" id="hotel-results"></div>
+          ${renderMap([])}
+        </div>
       </section>
     </div>
   `;
@@ -420,12 +699,16 @@ async function renderHotels(query) {
     const path = q ? `/api/v1/hotels?q=${encodeURIComponent(q)}` : "/api/v1/hotels";
     const [hotels, rooms] = await Promise.all([api(path), api("/api/v1/rooms")]);
     const homesOnly = query.get("homes_only") === "1";
-    document.getElementById("results-meta").textContent =
-      `${hotels.length} properties found · ${formatLongDate(checkIn)} – ${formatLongDate(checkOut)}${homesOnly ? " · entire homes filter on" : ""}`;
-    const visible = homesOnly
+    let visible = homesOnly
       ? hotels.filter((hotel) => /home|apt|apartment|suites|stay|residency/i.test(`${hotel.name} ${hotel.city}`))
       : hotels;
+    visible = filterHotels(visible, filter);
+    document.getElementById("results-meta").textContent =
+      `${visible.length} properties found · ${formatLongDate(checkIn)} – ${formatLongDate(checkOut)}${homesOnly ? " · entire homes filter on" : ""}${filter ? ` · ${filter}` : ""}`;
+    const split = app.querySelector(".results-split");
+    split.innerHTML = `<div class="hotel-list" id="hotel-results"></div>${renderMap(visible)}`;
     renderHotelList("#hotel-results", visible, rooms);
+    bindMap(app, visible);
   } catch (error) {
     document.getElementById("hotel-results").innerHTML = `<div class="error">${error.message}</div>`;
   }
@@ -439,16 +722,32 @@ async function renderHotel(hotelId) {
       api(`/api/v1/hotels/${hotelId}`),
       api(`/api/v1/rooms/hotel/${hotelId}`),
     ]);
+    const amenities = amenityLines(hotel);
+    const fav = favoriteIds().has(hotel.id);
+    const backQuery = sessionStorage.getItem("aryanstaysSearch") || "";
     app.innerHTML = `
-      <section class="promo-hero">
-        <div class="promo-copy">
-          <p class="promo-kicker">${hotel.city}</p>
-          <h1>${hotel.name}</h1>
-          <p class="promo-off"><span class="rating-pill">${hotel.rating.toFixed(1)}</span> Excellent location</p>
+      <section class="page-width hotel-details">
+        <a class="text-link" href="#/hotels?${backQuery}">← Back to search</a>
+        <div class="details-head">
+          <div>
+            <h1>${hotel.name}</h1>
+            <p><span class="rating-pill">⭐ ${hotel.rating.toFixed(1)}</span> ${ratingLabel(hotel.rating)}</p>
+            <p class="muted">📍 ${hotel.city}</p>
+          </div>
+          <button type="button" class="fav-btn large ${fav ? "is-fav" : ""}" data-fav="${hotel.id}" aria-label="Save hotel">${fav ? "♥" : "♡"}</button>
         </div>
-      </section>
-      <section class="page-width">
-        <h2>Choose your room</h2>
+        <div class="hero-photo hotel-photo ${cityClass(hotel.city)}">${hotel.name}</div>
+        <div class="details-grid">
+          <article class="card"><div class="card-body">
+            <h2>About this hotel</h2>
+            <p>${hotel.name} in ${hotel.city} is sourced from Hotel Service. Room types and live availability come from Room Service.</p>
+          </div></article>
+          <article class="card"><div class="card-body">
+            <h2>Amenities</h2>
+            <ul class="amenity-grid">${amenities.map((item) => `<li>✓ ${item}</li>`).join("")}</ul>
+          </div></article>
+        </div>
+        <h2>Available rooms</h2>
         <div class="room-grid">
           ${
             rooms.length
@@ -459,14 +758,14 @@ async function renderHotel(hotelId) {
               <div class="hotel-photo ${cityClass(hotel.city)}">${room.room_type}</div>
               <div class="card-body">
                 <p class="row">
-                  <strong>Room ${room.room_number}</strong>
+                  <strong>${room.room_type}</strong>
                   <span class="badge ${room.available ? "" : "busy"}">${room.available ? "Available" : "Reserved"}</span>
                 </p>
-                <p class="muted">${room.room_type}</p>
-                <p><strong>${money(room.price_per_night)}</strong> <span class="muted">/ night</span></p>
+                <p class="muted">${room.capacity || 2} Guests · Room ${room.room_number}</p>
+                <p><strong>${money(room.price_per_night)}</strong> <span class="muted">/night</span></p>
                 ${
                   room.available
-                    ? `<a class="btn" href="#/book/${room.id}/${hotel.id}">Book now</a>`
+                    ? `<a class="btn" href="#/book/${room.id}/${hotel.id}">Select room</a>`
                     : `<button class="btn" disabled>Currently reserved</button>`
                 }
               </div>
@@ -483,6 +782,14 @@ async function renderHotel(hotelId) {
   }
 }
 
+function guestDraft() {
+  try {
+    return JSON.parse(sessionStorage.getItem("aryanstaysGuest") || "{}");
+  } catch {
+    return {};
+  }
+}
+
 async function renderBook(roomId, hotelId) {
   showHome(false);
   app.innerHTML = `<section class="page-width"><p class="muted">Loading booking…</p></section>`;
@@ -491,33 +798,89 @@ async function renderBook(roomId, hotelId) {
       api(`/api/v1/rooms/${roomId}`),
       api(`/api/v1/hotels/${hotelId || room.hotel_id}`),
     ]);
-    const saved = new URLSearchParams(sessionStorage.getItem("aryanstaysSearch") || "");
-    const checkIn = saved.get("check_in") || isoDate(10);
-    const checkOut = saved.get("check_out") || isoDate(12);
+    const saved = searchDates();
+    const draft = guestDraft();
     app.innerHTML = `
-      <section class="page-width" style="padding-top:32px">
-        <h2>Book ${hotel.name}</h2>
-        <p class="muted">${hotel.city} · Room ${room.room_number} · ${room.room_type} · ${money(room.price_per_night)} / night</p>
+      <section class="page-width checkout-flow">
+        <ol class="steps">
+          <li class="done">Select room</li>
+          <li class="current">Guest details</li>
+          <li>Review booking</li>
+          <li>Payment</li>
+          <li>Confirmation</li>
+        </ol>
+        <h2>Guest details</h2>
+        <p class="muted">${hotel.name} · ${hotel.city} · ${room.room_type} · ${money(room.price_per_night)} / night</p>
         <form class="form" id="booking-form">
-          <label>Full name <input name="customer_name" required placeholder="Aryan Kumar" /></label>
-          <label>Email <input name="customer_email" type="email" required placeholder="aryan@example.com" /></label>
-          <label>Check-in <input name="check_in" type="date" required min="${isoDate(0)}" value="${checkIn}" /></label>
-          <label>Check-out <input name="check_out" type="date" required min="${isoDate(0)}" value="${checkOut}" /></label>
-          <button class="btn" type="submit">Continue to payment</button>
+          <label>Full name <input name="customer_name" required placeholder="Aryan Kumar" value="${draft.customer_name || ""}" /></label>
+          <label>Email <input name="customer_email" type="email" required placeholder="aryan@example.com" value="${draft.customer_email || ""}" /></label>
+          <label>Check-in <input name="check_in" type="date" required min="${isoDate(0)}" value="${draft.check_in || saved.checkIn}" /></label>
+          <label>Check-out <input name="check_out" type="date" required min="${isoDate(0)}" value="${draft.check_out || saved.checkOut}" /></label>
+          <button class="btn" type="submit">Continue to review</button>
         </form>
       </section>
     `;
-    document.getElementById("booking-form").addEventListener("submit", async (event) => {
+    document.getElementById("booking-form").addEventListener("submit", (event) => {
       event.preventDefault();
-      const form = new FormData(event.target);
-      const payload = Object.fromEntries(form.entries());
-      payload.hotel_id = hotel.id;
-      payload.room_id = room.id;
-      payload.amount = nightsBetween(payload.check_in, payload.check_out) * room.price_per_night;
-      const button = event.target.querySelector("button");
+      const payload = Object.fromEntries(new FormData(event.target).entries());
+      sessionStorage.setItem("aryanstaysGuest", JSON.stringify(payload));
+      window.location.hash = `#/review/${room.id}/${hotel.id}`;
+    });
+  } catch (error) {
+    app.innerHTML = `<section class="page-width"><div class="error">${error.message}</div></section>`;
+  }
+}
+
+async function renderReview(roomId, hotelId) {
+  showHome(false);
+  app.innerHTML = `<section class="page-width"><p class="muted">Loading review…</p></section>`;
+  try {
+    const [room, hotel] = await Promise.all([
+      api(`/api/v1/rooms/${roomId}`),
+      api(`/api/v1/hotels/${hotelId || room.hotel_id}`),
+    ]);
+    const draft = guestDraft();
+    const checkIn = draft.check_in || searchDates().checkIn;
+    const checkOut = draft.check_out || searchDates().checkOut;
+    const nights = nightsBetween(checkIn, checkOut);
+    const amount = nights * room.price_per_night;
+    app.innerHTML = `
+      <section class="page-width checkout-flow">
+        <ol class="steps">
+          <li class="done">Select room</li>
+          <li class="done">Guest details</li>
+          <li class="current">Review booking</li>
+          <li>Payment</li>
+          <li>Confirmation</li>
+        </ol>
+        <h2>Review booking</h2>
+        <article class="card"><div class="card-body">
+          <h3>${hotel.name}</h3>
+          <p>${room.room_type} · ${hotel.city}</p>
+          <p>${formatShortDate(checkIn)} → ${formatShortDate(checkOut)} · ${nights} night${nights === 1 ? "" : "s"}</p>
+          <p>${draft.customer_name || ""} · ${draft.customer_email || ""}</p>
+          <p class="muted">${searchDates().guests}</p>
+          <p><strong>${money(amount)}</strong></p>
+          <button class="btn" id="confirm-review">Continue to payment</button>
+        </div></article>
+      </section>
+    `;
+    document.getElementById("confirm-review").addEventListener("click", async (event) => {
+      const button = event.target;
       button.disabled = true;
       try {
-        const booking = await api("/api/v1/bookings", { method: "POST", body: JSON.stringify(payload) });
+        const booking = await api("/api/v1/bookings", {
+          method: "POST",
+          body: JSON.stringify({
+            customer_name: draft.customer_name,
+            customer_email: draft.customer_email,
+            check_in: checkIn,
+            check_out: checkOut,
+            hotel_id: hotel.id,
+            room_id: room.id,
+            amount,
+          }),
+        });
         showToast("Room reserved. A confirmation email was sent — open http://localhost:8025 to read it.");
         window.location.hash = `#/pay/${booking.booking_id}`;
       } catch (error) {
@@ -539,11 +902,18 @@ async function renderPay(bookingId) {
       api("/api/v1/payments/methods"),
     ]);
     if (booking.status === "CONFIRMED") {
-      window.location.hash = "#/bookings";
+      window.location.hash = `#/confirmed/${booking.booking_id}`;
       return;
     }
     app.innerHTML = `
-      <section class="page-width" style="padding-top:32px">
+      <section class="page-width checkout-flow">
+        <ol class="steps">
+          <li class="done">Select room</li>
+          <li class="done">Guest details</li>
+          <li class="done">Review booking</li>
+          <li class="current">Payment</li>
+          <li>Confirmation</li>
+        </ol>
         <h2>Pay for booking #${booking.booking_id}</h2>
         <p class="muted">Amount payable: <strong>${money(booking.amount)}</strong></p>
         <form class="form" id="payment-form">
@@ -598,7 +968,7 @@ async function renderPay(bookingId) {
           body: JSON.stringify({ payment_id: payment.payment_id }),
         });
         showToast("Payment successful. Confirmation email sent — check http://localhost:8025");
-        window.location.hash = "#/bookings";
+        window.location.hash = `#/confirmed/${booking.booking_id}`;
       } catch (error) {
         showToast(error.message);
         button.disabled = false;
@@ -609,37 +979,115 @@ async function renderPay(bookingId) {
   }
 }
 
+function downloadConfirmation(booking, hotel, room) {
+  const html = `<!DOCTYPE html><html><head><title>Booking ${booking.booking_id}</title></head><body>
+    <h1>Booking Confirmed</h1>
+    <p>Booking #HTL-${booking.booking_id}</p>
+    <p>${hotel ? hotel.name : "Hotel " + booking.hotel_id}</p>
+    <p>${room ? room.room_type : "Room " + booking.room_id}</p>
+    <p>${booking.check_in} → ${booking.check_out}</p>
+    <p>${money(booking.amount)}</p>
+  </body></html>`;
+  const blob = new Blob([html], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `aryanstays-HTL-${booking.booking_id}.html`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+async function renderConfirmed(bookingId) {
+  showHome(false);
+  app.innerHTML = `<section class="page-width"><p class="muted">Loading confirmation…</p></section>`;
+  try {
+    const booking = await api(`/api/v1/bookings/${bookingId}`);
+    let hotel = null;
+    let room = null;
+    try {
+      hotel = await api(`/api/v1/hotels/${booking.hotel_id}`);
+      room = await api(`/api/v1/rooms/${booking.room_id}`);
+    } catch {
+      hotel = null;
+      room = null;
+    }
+    app.innerHTML = `
+      <section class="page-width confirm-screen">
+        <ol class="steps">
+          <li class="done">Select room</li>
+          <li class="done">Guest details</li>
+          <li class="done">Review booking</li>
+          <li class="done">Payment</li>
+          <li class="current">Confirmation</li>
+        </ol>
+        <div class="confirm-card">
+          <div class="confirm-check">✓</div>
+          <h1>Booking Confirmed!</h1>
+          <p class="booking-ref">Booking #HTL-${booking.booking_id}</p>
+          <h2>${hotel ? hotel.name : `Hotel ${booking.hotel_id}`}</h2>
+          <p>${room ? room.room_type : `Room ${booking.room_id}`}</p>
+          <p>${formatShortDate(booking.check_in)} → ${formatShortDate(booking.check_out)}</p>
+          <p>${searchDates().guests}</p>
+          <p class="confirm-amount">${money(booking.amount)}</p>
+          <p class="muted">Notification Service emailed this booking. Open Mailpit at http://localhost:8025.</p>
+          <a class="btn" href="#/trips">View booking</a>
+          <button type="button" class="btn ghost-btn" id="download-confirm">Download confirmation</button>
+        </div>
+      </section>
+    `;
+    document.getElementById("download-confirm").addEventListener("click", () => downloadConfirmation(booking, hotel, room));
+  } catch (error) {
+    app.innerHTML = `<section class="page-width"><div class="error">${error.message}</div></section>`;
+  }
+}
+
+function tripBucket(booking) {
+  const today = isoDate(0);
+  if (booking.status === "CANCELLED" || booking.check_out < today) return "past";
+  return "upcoming";
+}
+
 async function renderBookings() {
   showHome(false);
-  app.innerHTML = `<section class="page-width"><h2>My bookings</h2><p class="muted">Loading…</p></section>`;
+  app.innerHTML = `<section class="page-width"><h2>My Trips</h2><p class="muted">Loading…</p></section>`;
   try {
-    const bookings = await api("/api/v1/bookings");
+    const [bookings, hotels, rooms] = await Promise.all([
+      api("/api/v1/bookings"),
+      api("/api/v1/hotels"),
+      api("/api/v1/rooms"),
+    ]);
+    const hotelMap = Object.fromEntries(hotels.map((hotel) => [hotel.id, hotel]));
+    const roomMap = Object.fromEntries(rooms.map((room) => [room.id, room]));
+    const upcoming = bookings.filter((booking) => tripBucket(booking) === "upcoming");
+    const past = bookings.filter((booking) => tripBucket(booking) === "past");
+    const card = (booking) => {
+      const hotel = hotelMap[booking.hotel_id];
+      const room = roomMap[booking.room_id];
+      return `
+        <article class="card trip-card"><div class="card-body">
+          <p class="row"><strong>${hotel ? hotel.name : `Hotel ${booking.hotel_id}`}</strong>
+          <span class="badge ${booking.status === "CANCELLED" ? "cancelled" : ""}">${booking.status}</span></p>
+          <p class="muted">${hotel ? hotel.city : ""}</p>
+          <p>${formatShortDate(booking.check_in)} → ${formatShortDate(booking.check_out)}</p>
+          <p class="muted">Booking #HTL-${booking.booking_id}${room ? ` · ${room.room_type}` : ""} · ${money(booking.amount)}</p>
+          <div class="notice-list" data-notes="${booking.booking_id}"></div>
+          <div class="trip-actions">
+            <a class="btn" href="#/confirmed/${booking.booking_id}">View details</a>
+            ${booking.status === "PENDING_PAYMENT" ? `<a class="btn" href="#/pay/${booking.booking_id}">Pay now</a>` : ""}
+            ${booking.status === "CONFIRMED" || booking.status === "PENDING_PAYMENT" ? `<button class="btn danger" data-cancel="${booking.booking_id}">Cancel</button>` : ""}
+          </div>
+        </div></article>`;
+    };
     app.innerHTML = `
-      <section class="page-width" style="padding-top:32px">
-        <h2>My bookings</h2>
-        ${
-          bookings.length
-            ? `<div class="hotel-list">${bookings
-                .map(
-                  (booking) => `
-          <article class="card"><div class="card-body">
-            <p class="row"><strong>Booking #${booking.booking_id}</strong>
-            <span class="badge ${booking.status === "CANCELLED" ? "cancelled" : ""}">${booking.status}</span></p>
-            <p>${booking.customer_name} · ${booking.customer_email}</p>
-            <p class="muted">${booking.check_in} to ${booking.check_out}</p>
-            <p class="muted">Hotel ${booking.hotel_id} · Room ${booking.room_id} · ${money(booking.amount)}</p>
-            <div class="notice-list" data-notes="${booking.booking_id}"></div>
-            ${
-                booking.status === "PENDING_PAYMENT"
-                  ? `<a class="btn" href="#/pay/${booking.booking_id}">Pay now</a>`
-                  : ""
-              }
-            ${booking.status === "CONFIRMED" || booking.status === "PENDING_PAYMENT" ? `<button class="btn danger" data-cancel="${booking.booking_id}">Cancel booking</button>` : ""}
-          </div></article>`
-                )
-                .join("")}</div>`
-            : `<div class="empty">You have no bookings yet. Search a destination to get started.</div>`
-        }
+      <section class="page-width trips-page">
+        <h2>My Trips</h2>
+        <p class="muted">Upcoming and past stays from Booking Service.</p>
+        <h3>Upcoming</h3>
+        <hr />
+        ${upcoming.length ? `<div class="hotel-list">${upcoming.map(card).join("")}</div>` : `<div class="empty">No upcoming trips. Search hotels to book your next stay.</div>`}
+        <h3>Past trips</h3>
+        <hr />
+        ${past.length ? `<div class="hotel-list">${past.map(card).join("")}</div>` : `<div class="empty">No past trips yet.</div>`}
       </section>
     `;
     app.querySelectorAll("[data-notes]").forEach(async (target) => {
@@ -719,19 +1167,21 @@ function render() {
   if (current.name === "hotels") return renderHotels(current.query);
   if (current.name === "hotel") return renderHotel(current.id);
   if (current.name === "book") return renderBook(current.roomId, current.hotelId);
+  if (current.name === "review") return renderReview(current.roomId, current.hotelId);
   if (current.name === "pay") return renderPay(current.bookingId);
+  if (current.name === "confirmed") return renderConfirmed(current.bookingId);
   if (current.name === "bookings") return renderBookings();
   if (current.name === "notifications") return renderNotifications();
   if (current.name === "flights") {
     return renderFeaturePage(
       "Flights",
-      "<p>Search one-way or return flights, then add a hotel with Flight + Hotel to bundle and save.</p><p class='muted'>This demo keeps live inventory in Hotel and Room services. Use SEARCH on the homepage for stays.</p>"
+      "<p>Search one-way or return flights, then add a hotel with Flight + Hotel to bundle and save.</p><p class='muted'>This demo keeps live inventory in Hotel and Room services. Use SEARCH HOTELS on the homepage for stays.</p>"
     );
   }
   if (current.name === "homes") {
     return renderFeaturePage(
       "Homes &amp; apartments",
-      "<p>Entire homes and apartments are included in the same Hotel Service catalog. Tick <strong>Show me only entire homes and apartments</strong> on search, then SEARCH.</p>"
+      "<p>Entire homes and apartments are included in the same Hotel Service catalog. Tick <strong>Show me only entire homes and apartments</strong> on search, then SEARCH HOTELS.</p>"
     );
   }
   if (current.name === "activities") {
@@ -772,13 +1222,13 @@ function render() {
   if (current.name === "guides") {
     return renderFeaturePage(
       "Travel Guides",
-      "<p>Neighborhood tips for Bangalore, Mumbai, Goa, Jaipur, Mysore and Udaipur. Open a city from Top destinations to see live hotels.</p>"
+      "<p>Neighborhood tips for Bangalore, Mumbai, Goa, Jaipur, Mysore and Udaipur. Open a city from Popular destinations to see live hotels.</p>"
     );
   }
   if (current.name === "bundle") {
     return renderFeaturePage(
       "Flight + Hotel",
-      "<p>Bundle and save: add a flight to your hotel search. Dates stay in sync with the occupancy picker on the homepage.</p><p><a class='btn' href='#/'>Search hotels</a></p>"
+      "<p>Bundle and save: add a flight to your hotel search. Dates stay in sync with the occupancy picker on the homepage.</p><p><a class='btn' href='#/'>SEARCH HOTELS</a></p>"
     );
   }
   return renderHome();
