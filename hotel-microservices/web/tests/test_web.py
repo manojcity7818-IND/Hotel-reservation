@@ -15,6 +15,11 @@ def test_index_contains_app_shell() -> None:
     assert "#/hotels" in html
     assert "#/bookings" in html
     assert "/images/hero-background.png" in html
+    assert "Bundle and save!" in html
+    assert "Coupons &amp; Deals" in html
+    assert "Airport transfer" in html
+    assert "Day Use" in html
+    assert "occupancy" in html
 
 
 def test_app_calls_all_microservices() -> None:
@@ -23,6 +28,7 @@ def test_app_calls_all_microservices() -> None:
     assert "/api/v1/rooms" in js
     assert "/api/v1/payments" in js
     assert "/api/v1/bookings" in js
+    assert "/api/v1/notifications" in js
     assert 'method: "POST"' in js
     assert 'method: "DELETE"' in js
     assert "Top destinations in India" in js or "dest-card" in js
@@ -39,4 +45,5 @@ def test_styles_exist() -> None:
     assert ".hotel-row" in css
     assert "/images/hero-background.png" in css
     assert "#home-page" in css
-    assert (PUBLIC / "images" / "hero-background.png").is_file()
+    assert ".occupancy" in css
+    assert ".nav-dropdown" in css

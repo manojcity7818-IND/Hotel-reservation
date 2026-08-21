@@ -2,7 +2,7 @@
 
 Phase 1 lives in [`hotel-microservices/`](hotel-microservices/README.md).
 
-Three FastAPI services plus Payment Service and the Aryanstays website.
+Five FastAPI services (hotel, room, booking, payment, notification) plus the Aryanstays website.
 
 Azure DevOps:
 

@@ -27,6 +27,7 @@ def _create_booking():
     with (
         patch("app.main.room_client.get_availability", return_value=True),
         patch("app.main.room_client.reserve_room"),
+        patch("app.main.notification_client.notify_booking"),
     ):
         return client.post("/api/v1/bookings", json=BOOKING_PAYLOAD)
 
@@ -35,6 +36,7 @@ def test_create_booking() -> None:
     with (
         patch("app.main.room_client.get_availability", return_value=True),
         patch("app.main.room_client.reserve_room") as reserve,
+        patch("app.main.notification_client.notify_booking") as notify,
     ):
         response = client.post("/api/v1/bookings", json=BOOKING_PAYLOAD)
 
@@ -44,13 +46,18 @@ def test_create_booking() -> None:
     assert body["status"] == "PENDING_PAYMENT"
     assert body["amount"] == 10000
     reserve.assert_called_once_with(101)
+    notify.assert_called_once()
+    assert notify.call_args.args[1] == "BOOKING_CREATED"
 
 
 def test_complete_payment() -> None:
     created = _create_booking().json()
-    with patch(
-        "app.main.payment_client.get_payment",
-        return_value={"booking_id": created["booking_id"], "status": "SUCCESS"},
+    with (
+        patch(
+            "app.main.payment_client.get_payment",
+            return_value={"booking_id": created["booking_id"], "status": "SUCCESS"},
+        ),
+        patch("app.main.notification_client.notify_booking") as notify,
     ):
         response = client.post(
             f"/api/v1/bookings/{created['booking_id']}/pay",
@@ -59,13 +66,18 @@ def test_complete_payment() -> None:
     assert response.status_code == 200
     assert response.json()["status"] == "CONFIRMED"
     assert response.json()["payment_id"] == 77
+    notify.assert_called_once()
+    assert notify.call_args.args[1] == "BOOKING_CONFIRMED"
 
 
 def test_failed_payment_does_not_confirm() -> None:
     created = _create_booking().json()
-    with patch(
-        "app.main.payment_client.get_payment",
-        return_value={"booking_id": created["booking_id"], "status": "FAILED"},
+    with (
+        patch(
+            "app.main.payment_client.get_payment",
+            return_value={"booking_id": created["booking_id"], "status": "FAILED"},
+        ),
+        patch("app.main.notification_client.notify_booking") as notify,
     ):
         response = client.post(
             f"/api/v1/bookings/{created['booking_id']}/pay",
@@ -73,6 +85,8 @@ def test_failed_payment_does_not_confirm() -> None:
         )
     assert response.status_code == 409
     assert client.get(f"/api/v1/bookings/{created['booking_id']}").json()["status"] == "PAYMENT_FAILED"
+    notify.assert_called_once()
+    assert notify.call_args.args[1] == "PAYMENT_FAILED"
 
 
 def test_get_booking() -> None:
@@ -84,11 +98,16 @@ def test_get_booking() -> None:
 
 def test_cancel_booking() -> None:
     created = _create_booking().json()
-    with patch("app.main.room_client.release_room") as release:
+    with (
+        patch("app.main.room_client.release_room") as release,
+        patch("app.main.notification_client.notify_booking") as notify,
+    ):
         response = client.delete(f"/api/v1/bookings/{created['booking_id']}")
     assert response.status_code == 200
     assert response.json()["status"] == "CANCELLED"
     release.assert_called_once_with(101)
+    notify.assert_called_once()
+    assert notify.call_args.args[1] == "BOOKING_CANCELLED"
 
 
 def test_prevent_booking_unavailable_room() -> None:

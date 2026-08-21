@@ -17,34 +17,70 @@
       <a class="logo" href="#/">
         <span class="logo-mark">A</span>
         <span>Aryanstays</span>
+        <span class="logo-dots" aria-hidden="true"></span>
       </a>
       <nav class="product-nav">
-        <a href="#/" class="is-active">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11h16v9H4zm2-6 6-4 6 4v4H6z" fill="currentColor"/></svg>
-          Hotels
+        <a href="#/bundle" class="nav-link">
+          Flight + Hotel
+          <span class="nav-tag">Bundle and save!</span>
         </a>
-        <a href="#/hotels">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18v2H3zm2-7h3v6H5zm5 0h3v6h-3zm5 0h3v6h-3zM4 9l8-6 8 6v1H4z" fill="currentColor"/></svg>
-          Homes &amp; Apts
-        </a>
-        <a href="#/hotels">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7zm0 9.5A2.5 2.5 0 1012 6a2.5 2.5 0 000 5.5z" fill="currentColor"/></svg>
-          Activities
-        </a>
-        <a href="#/bookings">My bookings</a>
+        <a href="#/" class="nav-link is-active">Hotels &amp; Homes</a>
+        <div class="nav-dropdown">
+          <button type="button" class="nav-link nav-drop-btn" aria-expanded="false">Transport</button>
+          <div class="nav-menu">
+            <a href="#/flights">Flights</a>
+            <a href="#/transport?mode=buses">Buses</a>
+            <a href="#/transport?mode=trains">Trains</a>
+            <a href="#/transport?mode=ferries">Ferries</a>
+            <a href="#/transfers">Airport transfer</a>
+            <a href="#/transport?mode=cars">Car rentals</a>
+          </div>
+        </div>
+        <a href="#/activities" class="nav-link">Activities</a>
+        <a href="#/coupons" class="nav-link">Coupons &amp; Deals</a>
+        <div class="nav-dropdown">
+          <button type="button" class="nav-link nav-drop-btn more-btn" aria-label="More" aria-expanded="false">⋯</button>
+          <div class="nav-menu">
+            <a href="#/esim">eSIM</a>
+            <a href="#/guides">Travel Guides</a>
+            <a href="#/bookings">My bookings</a>
+            <a href="#/notifications">Notifications</a>
+          </div>
+        </div>
       </nav>
       <div class="header-tools">
-        <button type="button" class="ghost">List your place</button>
-        <button type="button" class="ghost">Help</button>
-        <button type="button" class="ghost">EN</button>
-        <button type="button" class="ghost">INR</button>
+        <div class="nav-dropdown">
+          <button type="button" class="ghost nav-drop-btn lang-btn" aria-label="Language">EN</button>
+          <div class="nav-menu compact">
+            <button type="button" class="menu-choice" data-lang="EN">English</button>
+            <button type="button" class="menu-choice" data-lang="HI">हिन्दी</button>
+          </div>
+        </div>
+        <div class="nav-dropdown">
+          <button type="button" class="ghost nav-drop-btn currency-btn">Rs.</button>
+          <div class="nav-menu compact">
+            <button type="button" class="menu-choice" data-currency="Rs.">INR</button>
+            <button type="button" class="menu-choice" data-currency="USD">USD</button>
+          </div>
+        </div>
         <button type="button" class="ghost">Sign in</button>
         <button type="button" class="create-account">Create account</button>
+        <button type="button" class="hamburger" aria-label="Menu">☰</button>
       </div>
     </header>
 
     <div id="home-page">
       <section class="promo-hero">
+        <div class="promo-art" aria-hidden="true">
+          <svg viewBox="0 0 220 180" class="palm-art">
+            <ellipse cx="168" cy="148" rx="28" ry="12" fill="#f4c430"/>
+            <circle cx="168" cy="128" r="22" fill="#ff5c5c"/>
+            <path d="M70 170 L78 70 L86 170" fill="#6b3f16"/>
+            <path d="M78 78 C20 40 18 90 70 88 C30 100 48 140 82 96" fill="#1fa36a"/>
+            <path d="M78 78 C130 30 150 80 90 88 C140 70 150 130 86 100" fill="#2ecc71"/>
+            <path d="M78 86 C40 110 70 150 88 108" fill="#148f4a"/>
+          </svg>
+        </div>
         <div class="promo-copy">
           <p class="promo-kicker">Limited-time deal</p>
           <h1>MEGA SALE</h1>
@@ -54,17 +90,16 @@
 
         <form class="search-panel" id="home-search-form">
           <div class="search-tabs" role="tablist">
-            <button type="button" class="search-tab active">Hotels</button>
-            <button type="button" class="search-tab">Flights</button>
-            <button type="button" class="search-tab">Homes &amp; Apts</button>
-            <button type="button" class="search-tab">Flight + Hotel</button>
-            <button type="button" class="search-tab">Activities</button>
-            <button type="button" class="search-tab">Airport transfer</button>
+            <button type="button" class="search-tab active" data-tab="hotels">Hotels</button>
+            <button type="button" class="search-tab" data-tab="homes">Homes &amp; Apts</button>
+            <button type="button" class="search-tab" data-tab="flights">Flights</button>
+            <button type="button" class="search-tab" data-tab="activities">Activities</button>
+            <button type="button" class="search-tab" data-tab="transfers">Airport transfer</button>
           </div>
 
-          <div class="stay-row">
+          <div class="stay-row" id="stay-row">
             <button type="button" class="stay-pill active" data-stay="overnight">Overnight Stays</button>
-            <button type="button" class="stay-pill" data-stay="dayuse">Day Use Stays</button>
+            <button type="button" class="stay-pill" data-stay="dayuse">Day Use</button>
           </div>
 
           <label class="field field-wide">
@@ -77,22 +112,34 @@
               <span class="field-label">Check-in</span>
               <input name="check_in" type="date" />
             </label>
-            <label class="field">
+            <label class="field checkout-field">
               <span class="field-label">Check-out</span>
               <input name="check_out" type="date" />
             </label>
-            <label class="field">
-              <span class="field-label">Guests</span>
-              <input name="guests" value="2 adults, 1 room" />
-            </label>
+            <div class="occupancy">
+              <button type="button" class="field occupancy-trigger" aria-expanded="false">
+                <span class="field-icon">👤</span>
+                <span>
+                  <span class="field-label">Guests</span>
+                  <strong class="occupancy-label">2 adults, 1 room</strong>
+                </span>
+              </button>
+              <input type="hidden" name="guests" value="2 adults, 1 room" />
+              <div class="occupancy-menu" hidden>
+                <div class="step-row"><span>Adults</span><div><button type="button" data-step="adults" data-dir="-1">−</button><strong data-count="adults">2</strong><button type="button" data-step="adults" data-dir="1">+</button></div></div>
+                <div class="step-row"><span>Children</span><div><button type="button" data-step="children" data-dir="-1">−</button><strong data-count="children">0</strong><button type="button" data-step="children" data-dir="1">+</button></div></div>
+                <div class="step-row"><span>Rooms</span><div><button type="button" data-step="rooms" data-dir="-1">−</button><strong data-count="rooms">1</strong><button type="button" data-step="rooms" data-dir="1">+</button></div></div>
+                <button type="button" class="btn occupancy-apply">Done</button>
+              </div>
+            </div>
           </div>
 
           <div class="search-extra">
             <label class="check">
-              <input type="checkbox" />
+              <input type="checkbox" name="homes_only" />
               Show me only entire homes and apartments
             </label>
-            <button type="button" class="text-link">+ Add a flight</button>
+            <button type="button" class="text-link add-flight">+ Add a flight</button>
           </div>
 
           <button class="search-cta" type="submit">SEARCH</button>
@@ -135,7 +182,7 @@
         </article>
         <article>
           <h3>Book with confidence</h3>
-          <p>Booking Service confirms the stay and can release the room if you cancel.</p>
+          <p>Aryanstays confirmation emails come from Notification Service after each booking update.</p>
         </article>
         <article>
           <h3>India-wide inventory</h3>
@@ -151,7 +198,7 @@
       <div class="page-width footer-grid">
         <div>
           <strong>Aryanstays</strong>
-          <p>Hotels, homes and apartments across India. Local demo powered by three microservices.</p>
+          <p>Hotels, homes and apartments across India. Local demo powered by five microservices.</p>
         </div>
         <div>
           <h4>Explore</h4>
@@ -162,11 +209,12 @@
         <div>
           <h4>Help</h4>
           <a href="#/bookings">Manage booking</a>
-          <a href="#/">Customer support</a>
+          <a href="#/coupons">Coupons &amp; Deals</a>
+          <a href="#/notifications">Booking alerts</a>
         </div>
         <div>
           <h4>Partners</h4>
-          <p>Hotel Service · Room Service · Booking Service</p>
+          <p>Hotel · Room · Booking · Payment · Notification</p>
         </div>
       </div>
     </footer>
