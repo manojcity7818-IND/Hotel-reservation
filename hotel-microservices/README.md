@@ -220,7 +220,7 @@ Each backend service contains `app/` (FastAPI), `tests/`, `requirements.txt`, `D
 
 - Docker Engine with Docker Compose v2
 - Ports 8000, 8002, 8003, 8004, 8005, 8025, and 8080 free on the host
-- Optional for unit tests only: Python 3.12
+- Optional for unit tests only: Python **3.9+** (3.12 preferred). macOS Command Line Tools ships Python 3.9, which is enough after this repo’s type-hint updates. If `python3` is older than 3.9, install 3.12 (`brew install python@3.12`) and run `PYTHON=python3.12 bash scripts/run-tests.sh`.
 
 ---
 
@@ -329,11 +329,13 @@ Interactive docs (Swagger):
 - Room: http://localhost:8002/docs
 - Booking: http://localhost:8003/docs
 
-Unit tests (from `hotel-microservices/`, with Python 3.12):
+Unit tests (from `hotel-microservices/`):
 
 ```bash
-./scripts/run-tests.sh
+bash scripts/run-tests.sh
 ```
+
+The script prefers `python3.12` if it is on your PATH. On a Mac that only has Command Line Tools Python 3.9, `python3` is used automatically.
 
 Or per service:
 
@@ -436,7 +438,7 @@ curl -X POST http://localhost:8002/api/v1/rooms/102/release
 | Cannot reach a service from another container | Use `http://room-service:8000`, not `localhost`. |
 | Healthcheck stays unhealthy | Wait for the start period, then inspect logs. Health URLs inside the container are `http://127.0.0.1:8000/health`. |
 | Data disappeared after restart | Expected. Phase 1 stores everything in memory. |
-| Rebuild did not pick up code | `docker compose build --no-cache <service>` then `docker compose up -d <service>`. |
+| `unsupported operand type(s) for |` while running tests | That happens on Python 3.8. Use 3.9+ or `PYTHON=python3.12 bash scripts/run-tests.sh`. Pull the latest code so type hints use `Optional[...]`. |
 
 ---
 

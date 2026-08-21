@@ -2,13 +2,14 @@ import html
 import os
 import smtplib
 from email.message import EmailMessage
+from typing import Union
 
 
 class EmailDeliveryError(Exception):
     """Raised when SMTP cannot deliver a booking email."""
 
 
-def smtp_settings() -> dict[str, str | int | bool]:
+def smtp_settings() -> dict[str, Union[str, int, bool]]:
     return {
         "host": os.getenv("SMTP_HOST", "mailpit"),
         "port": int(os.getenv("SMTP_PORT", "1025")),

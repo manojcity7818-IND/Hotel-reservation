@@ -1,5 +1,6 @@
 from datetime import date
 from enum import Enum
+from typing import Optional
 
 from pydantic import BaseModel, EmailStr, Field, model_validator
 
@@ -41,4 +42,4 @@ class BookingResponse(BaseModel):
     check_out: date
     status: BookingStatus
     amount: float
-    payment_id: int | None = None
+    payment_id: Optional[int] = None

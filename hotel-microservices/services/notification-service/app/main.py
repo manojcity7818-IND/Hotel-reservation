@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -70,7 +72,7 @@ def create_notification(payload: NotificationCreate) -> Notification:
 
 
 @app.get("/api/v1/notifications", response_model=list[NotificationResponse])
-def list_notifications(booking_id: int | None = None) -> list[Notification]:
+def list_notifications(booking_id: Optional[int] = None) -> list[Notification]:
     items = list(data.notifications.values())
     if booking_id is None:
         return items

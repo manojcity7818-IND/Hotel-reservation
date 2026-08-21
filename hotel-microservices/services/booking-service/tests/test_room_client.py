@@ -1,3 +1,4 @@
+from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -8,7 +9,7 @@ from app import room_client
 
 
 class _FakeResponse:
-    def __init__(self, status_code: int, payload: dict | None = None) -> None:
+    def __init__(self, status_code: int, payload: Optional[dict] = None) -> None:
         self.status_code = status_code
         self._payload = payload or {}
 

@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -44,7 +46,7 @@ def ready() -> dict[str, str]:
 
 
 @app.get("/api/v1/hotels", response_model=list[HotelResponse])
-def get_hotels(city: str | None = None, q: str | None = None) -> list[Hotel]:
+def get_hotels(city: Optional[str] = None, q: Optional[str] = None) -> list[Hotel]:
     results = list(data.hotels.values())
     needle = (city or q or "").strip().lower()
     if needle:

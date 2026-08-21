@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -21,11 +22,11 @@ class PaymentCreate(BaseModel):
     amount: float = Field(..., gt=0)
     method: PaymentMethod
     payer_name: str = Field(..., min_length=1)
-    upi_id: str | None = None
-    card_number: str | None = None
-    card_holder: str | None = None
-    bank_name: str | None = None
-    wallet_name: str | None = None
+    upi_id: Optional[str] = None
+    card_number: Optional[str] = None
+    card_holder: Optional[str] = None
+    bank_name: Optional[str] = None
+    wallet_name: Optional[str] = None
 
 
 class PaymentResponse(BaseModel):
