@@ -1,5 +1,6 @@
 from datetime import date
 from enum import Enum
+from typing import Optional
 
 from pydantic import BaseModel
 
@@ -21,4 +22,4 @@ class Booking(BaseModel):
     check_out: date
     status: BookingStatus
     amount: float
-    payment_id: int | None = None
+    payment_id: Optional[int] = None

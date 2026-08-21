@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -33,4 +34,4 @@ class NotificationResponse(BaseModel):
     subject: str
     message: str
     status: str
-    error: str | None = None
+    error: Optional[str] = None

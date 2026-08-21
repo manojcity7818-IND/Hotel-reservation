@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Optional
 
 from pydantic import BaseModel
 
@@ -24,4 +25,4 @@ class Notification(BaseModel):
     subject: str
     message: str
     status: str = "SENT"
-    error: str | None = None
+    error: Optional[str] = None

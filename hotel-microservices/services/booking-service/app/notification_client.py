@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Optional
 
 import httpx
 
@@ -19,7 +20,7 @@ def _client() -> httpx.Client:
     return httpx.Client(base_url=NOTIFICATION_SERVICE_URL, timeout=TIMEOUT_SECONDS)
 
 
-def send_notification(payload: dict) -> dict | None:
+def send_notification(payload: dict) -> Optional[dict]:
     try:
         with _client() as client:
             response = client.post("/api/v1/notifications", json=payload)
@@ -44,7 +45,7 @@ def notify_booking(
     event: str,
     subject: str,
     message: str,
-) -> dict | None:
+) -> Optional[dict]:
     return send_notification(
         {
             "booking_id": booking.booking_id,
